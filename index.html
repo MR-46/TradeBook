@@ -1,0 +1,3233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeBook — Billing & Inventory</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --sidebar-bg: #0C447C;
+    --sidebar-hover: #0d5299;
+    --sidebar-active: #1a6fcc;
+    --accent: #2196F3;
+    --accent-light: #E3F2FD;
+    --success: #2e7d32;
+    --success-bg: #E8F5E9;
+    --danger: #c62828;
+    --danger-bg: #FFEBEE;
+    --warning: #f57f17;
+    --warning-bg: #FFF8E1;
+    --text: #1a1a2e;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --surface: #ffffff;
+    --bg: #f0f4f8;
+    --radius: 10px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    font-size: 14px;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 230px;
+    background: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-brand {
+    padding: 22px 20px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .sidebar-brand h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+
+  .sidebar-brand p {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 12px 0;
+  }
+
+  .nav-section {
+    padding: 10px 16px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    color: rgba(255,255,255,0.75);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 13.5px;
+    font-weight: 500;
+    border-left: 3px solid transparent;
+  }
+
+  .nav-item:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+  }
+
+  .nav-item.active {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border-left-color: #60b3ff;
+  }
+
+  .nav-item svg { flex-shrink: 0; opacity: 0.8; }
+  .nav-item.active svg { opacity: 1; }
+
+  /* ── MAIN ── */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .topbar-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .topbar-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+  }
+
+  /* ── CARDS ── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+
+  .stat-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .stat-card .value {
+    font-size: 26px;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: -1px;
+    color: var(--text);
+  }
+
+  .stat-card .sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .stat-card.accent .value { color: var(--accent); }
+  .stat-card.success .value { color: var(--success); }
+  .stat-card.danger .value { color: var(--danger); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1976D2; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #1b5e20; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #b71c1c; }
+  .btn-outline { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn-outline:hover { background: var(--accent-light); }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1.5px solid var(--border); }
+  .btn-ghost:hover { border-color: #aaa; color: var(--text); }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+  .btn-xs { padding: 3px 8px; font-size: 11px; border-radius: 5px; }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .table-header h3 { font-size: 15px; font-weight: 700; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    text-align: left;
+    padding: 11px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13.5px;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafcff; }
+
+  .mono { font-family: 'DM Mono', monospace; font-size: 13px; }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-success { background: var(--success-bg); color: var(--success); }
+  .badge-danger { background: var(--danger-bg); color: var(--danger); }
+  .badge-warning { background: var(--warning-bg); color: var(--warning); }
+  .badge-info { background: var(--accent-light); color: #1565C0; }
+  .badge-muted { background: #f3f4f6; color: #6b7280; }
+
+  /* ── FORM ── */
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-control {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-family: inherit;
+    color: var(--text);
+    background: #fff;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-control:focus { border-color: var(--accent); }
+  select.form-control { cursor: pointer; }
+  .form-row { display: grid; gap: 14px; }
+  .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
+  .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 760px;
+    max-height: 94vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-lg { max-width: 1100px; max-height: 96vh; }
+  .modal-header {
+    padding: 22px 28px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-header h2 { font-size: 17px; font-weight: 700; }
+  .modal-close { cursor: pointer; color: var(--text-muted); font-size: 20px; line-height: 1; border: none; background: none; padding: 2px; }
+  .modal-body { padding: 22px 28px; flex: 1; }
+  .modal-footer { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── INVOICE ITEMS ── */
+  .items-table { width: 100%; border-collapse: collapse; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .items-table th { background: #f8fafc; padding: 10px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+  .items-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .items-table tr:last-child td { border-bottom: none; }
+  .items-table input, .items-table select { width: 100%; padding: 7px 8px; border: 1.5px solid transparent; border-radius: 5px; font-size: 13.5px; font-family: inherit; background: transparent; outline: none; }
+  .items-table input:focus, .items-table select:focus { border-color: var(--accent); background: #fff; }
+
+  /* ── SEARCH ── */
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+  .search-wrap input { padding-left: 34px; }
+
+  /* ── SECTION CARD ── */
+  .section-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .section-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 14px; color: var(--text); }
+
+  /* ── DASHBOARD RECENT ── */
+  .txn-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .txn-item:last-child { border-bottom: none; }
+  .txn-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .txn-dot.sale { background: var(--accent); }
+  .txn-dot.purchase { background: var(--warning); }
+  .txn-dot.return { background: var(--danger); }
+  .txn-info { flex: 1; }
+  .txn-info .name { font-weight: 600; font-size: 13px; }
+  .txn-info .meta { font-size: 11px; color: var(--text-muted); }
+  .txn-amount { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 13px; }
+
+  /* ── INPUT GROUP ── */
+  .input-group { display: flex; gap: 8px; }
+  .input-group .form-control { flex: 1; }
+
+  /* ── ALERT ── */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+  .alert-info { background: var(--accent-light); color: #1565C0; border: 1px solid #90CAF9; }
+  .alert-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #EF9A9A; }
+  .alert-warning { background: var(--warning-bg); color: var(--warning); border: 1px solid #FFE082; }
+
+  /* ── DIVIDER ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+  /* ── LEDGER ── */
+  .ledger-table th, .ledger-table td { font-size: 12.5px; padding: 9px 12px; }
+  .cr { color: var(--success); }
+  .dr { color: var(--danger); }
+
+  /* ── PRINT ── */
+  @media print {
+    #sidebar, .topbar, .no-print, .btn, #bottom-nav, #fab, #menu-btn, #sidebar-overlay { display: none !important; }
+    body { display: block; background: #fff; height: auto; overflow: visible; }
+    #main { display: block; overflow: visible; }
+    .content { padding: 0; overflow: visible; }
+    .print-area { display: block !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
+  .print-invoice {
+    display: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* ── MISC ── */
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+  .empty-state svg { opacity: 0.3; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .total-row td { font-weight: 700; background: #f8fafc !important; border-top: 2px solid var(--border) !important; }
+
+  .tag { display: inline-flex; gap: 4px; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+  .actions-col { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .balance-box {
+    background: var(--sidebar-bg);
+    color: #fff;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+  .balance-box .bb-item .lbl { font-size: 11px; opacity: 0.6; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; }
+  .balance-box .bb-item .val { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+  .report-month-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    background: var(--surface);
+    padding: 14px 20px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  /* ══════════════════════════════════════════════
+     MOBILE RESPONSIVE — Bottom Nav + Drawer
+  ══════════════════════════════════════════════ */
+
+  /* Mobile sidebar overlay */
+  #sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+  }
+  #sidebar-overlay.show { display: block; }
+
+  /* Bottom nav bar (mobile only) */
+  #bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--sidebar-bg);
+    z-index: 300;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.2);
+  }
+
+  .bottom-nav-inner {
+    display: flex;
+    align-items: stretch;
+    height: 58px;
+  }
+
+  .bn-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 6px 4px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .bn-item.active { color: #fff; background: rgba(255,255,255,0.12); }
+  .bn-item svg { width: 20px; height: 20px; }
+
+  /* Menu hamburger button in topbar (mobile) */
+  #menu-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: none;
+    background: var(--bg);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text);
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* FAB — floating action button (mobile) */
+  #fab {
+    display: none; /* shown only on mobile via media query */
+    position: fixed;
+    bottom: 70px;
+    right: 18px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(33,150,243,0.45);
+    z-index: 250;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s;
+  }
+  #fab:active { transform: scale(0.93); }
+
+  @media (max-width: 768px) {
+    #sidebar-close-btn { display: flex !important; align-items: center; justify-content: center; }
+
+    /* Hide desktop sidebar */
+    #sidebar {
+      position: fixed;
+      left: -240px;
+      top: 0;
+      bottom: 0;
+      z-index: 210;
+      transition: left 0.25s ease;
+      width: 240px;
+    }
+    #sidebar.open { left: 0; }
+
+    /* Show mobile elements */
+    #bottom-nav { display: block; }
+    #menu-btn { display: flex; }
+    #fab { display: flex; }
+
+    /* Body takes full width, add bottom padding for nav */
+    body { display: block; height: 100vh; overflow: hidden; }
+    #main {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Topbar tweaks */
+    .topbar {
+      padding: 10px 14px;
+      gap: 10px;
+    }
+    .topbar-title { font-size: 16px; }
+    .topbar-subtitle { display: none; }
+    .topbar-actions { gap: 6px; }
+    .topbar-actions .btn { padding: 7px 10px; font-size: 12px; }
+
+    /* Content padding + bottom nav space */
+    .content {
+      padding: 14px;
+      padding-bottom: calc(70px + env(safe-area-inset-bottom));
+    }
+
+    /* Cards stack 2 per row on mobile */
+    .cards-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .stat-card { padding: 14px; }
+    .stat-card .value { font-size: 20px; }
+    .stat-card .label { font-size: 10px; }
+
+    /* Two-col stacks */
+    .two-col { grid-template-columns: 1fr; gap: 14px; }
+    .three-col { grid-template-columns: 1fr; gap: 14px; }
+
+    /* Tables — horizontal scroll */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 480px; }
+    .ledger-table { min-width: 560px; }
+    th, td { padding: 9px 10px; font-size: 12.5px; }
+    .table-header { padding: 12px 14px; }
+    .table-header h3 { font-size: 14px; }
+
+    /* Modal — full screen sheet on mobile */
+    .modal-overlay { padding: 0; align-items: flex-end; }
+    .modal {
+      border-radius: 16px 16px 0 0;
+      max-width: 100%;
+      max-height: 92vh;
+      width: 100%;
+    }
+    .modal-lg { max-width: 100%; max-height: 92vh; }
+    .modal-header { padding: 16px 18px 14px; }
+    .modal-body { padding: 14px 18px; }
+    .modal-footer { padding: 12px 18px; flex-wrap: wrap; gap: 8px; }
+    .modal-footer .btn { flex: 1 1 auto; justify-content: center; min-width: 100px; }
+
+    /* Forms */
+    .form-row.cols-2 { grid-template-columns: 1fr; }
+    .form-row.cols-3 { grid-template-columns: 1fr; }
+    .form-row.cols-4 { grid-template-columns: 1fr 1fr; }
+    .form-control { font-size: 16px; padding: 10px 12px; } /* 16px prevents iOS zoom */
+
+    /* Items table in forms */
+    .items-table { min-width: 520px; }
+    .items-table input { font-size: 15px; padding: 6px 7px; }
+    #saleItemsWrap, #purchItemsWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Section cards */
+    .section-card { padding: 14px; margin-bottom: 14px; }
+    .section-card h3 { font-size: 13px; margin-bottom: 10px; }
+
+    /* Balance box wraps */
+    .balance-box { flex-wrap: wrap; gap: 16px; padding: 14px 16px; }
+    .balance-box .bb-item .val { font-size: 18px; }
+
+    /* Report bar stacks */
+    .report-month-bar { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+    .report-month-bar .form-control { width: 100%; }
+
+    /* Action buttons tighter */
+    .actions-col { flex-wrap: nowrap; gap: 4px; }
+    .btn-xs { padding: 5px 8px; font-size: 11px; }
+
+    /* Ledger */
+    .ledger-table th, .ledger-table td { padding: 8px 10px; font-size: 12px; }
+
+    /* Export buttons full width */
+    .section-card .btn { width: 100%; justify-content: center; margin-bottom: 2px; }
+  }
+
+  @media (max-width: 400px) {
+    .cards-grid { grid-template-columns: 1fr; }
+    .form-row.cols-4 { grid-template-columns: 1fr; }
+  }
+
+  /* ── FULL PAGE ENTRY FORM ── */
+  .entry-form-page {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .entry-form-header {
+    padding: 18px 24px;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+  }
+  .entry-form-header h2 { font-size: 17px; font-weight: 700; color: var(--text); }
+  .entry-form-body { padding: 24px; }
+  .entry-form-footer {
+    padding: 16px 24px;
+    border-top: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+    gap: 12px;
+  }
+  .entry-total-box {
+    background: var(--sidebar-bg);
+    color: #fff;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .entry-total-box span { font-size: 13px; font-weight: 500; opacity: 0.7; font-family: 'DM Sans', sans-serif; }
+  .items-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .items-table-wrap .items-table {
+    border: none;
+    border-radius: 0;
+    min-width: 800px;
+  }
+  @media (max-width: 768px) {
+    .entry-form-body { padding: 14px; }
+    .entry-form-footer { flex-wrap: wrap; }
+    .entry-total-box { font-size: 16px; padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR OVERLAY (mobile) -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-brand" style="display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <h1 id="sidebarShopName">TradeBook</h1>
+      <p id="sidebarTagline">Billing & Inventory</p>
+    </div>
+    <button onclick="closeSidebar()" id="sidebar-close-btn" style="display:none;border:none;background:rgba(255,255,255,0.15);color:#fff;border-radius:6px;width:30px;height:30px;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0">✕</button>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-section">Transactions</div>
+    <div class="nav-item" onclick="showPage('sales')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2"/></svg>
+      Sales
+    </div>
+    <div class="nav-item" onclick="showPage('purchases')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Purchases
+    </div>
+    <div class="nav-item" onclick="showPage('returns')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.25"/></svg>
+      Returns
+    </div>
+    <div class="nav-section">Masters</div>
+    <div class="nav-item" onclick="showPage('inventory')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Inventory
+    </div>
+    <div class="nav-item" onclick="showPage('parties')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Party Master
+    </div>
+    <div class="nav-section">Finance</div>
+    <div class="nav-item" onclick="showPage('outstanding')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Outstanding
+    </div>
+    <div class="nav-item" onclick="showPage('cashbook')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      Cash / Bank
+    </div>
+    <div class="nav-item" onclick="showPage('daybook')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Day Book
+    </div>
+    <div class="nav-item" onclick="showPage('pnl')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+      P &amp; L
+    </div>
+    <div class="nav-item" onclick="showPage('ledger')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Party Ledger
+    </div>
+    <div class="nav-item" onclick="showPage('reports')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Reports
+    </div>
+    <div class="nav-item" onclick="showPage('export')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </div>
+    <div class="nav-section">Config</div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 1.8 3.2l-2.6 1.5a7 7 0 0 0-1.07-1.86zM12 2a10 10 0 0 1 3.2.53l-.73 2.9A7 7 0 0 0 12 5zM4.93 4.93l1.87 2.84A7 7 0 0 0 5.73 9.3L3.13 7.8A10 10 0 0 1 4.93 4.93zM2 12a10 10 0 0 1 .53-3.2l2.9.73A7 7 0 0 0 5 12zM4.93 19.07a10 10 0 0 1-1.8-3.2l2.6-1.5a7 7 0 0 0 1.07 1.86zM12 22a10 10 0 0 1-3.2-.53l.73-2.9A7 7 0 0 0 12 19zM19.07 19.07l-1.87-2.84A7 7 0 0 0 18.27 14.7l2.6 1.5a10 10 0 0 1-1.8 3.87zM22 12a10 10 0 0 1-.53 3.2l-2.9-.73A7 7 0 0 0 19 12z"/></svg>
+      Settings
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0">
+      <button id="menu-btn" onclick="openSidebar()" aria-label="Menu">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div style="min-width:0">
+        <div class="topbar-title" id="pageTitle">Dashboard</div>
+        <div class="topbar-subtitle" id="pageSubtitle">Overview of your business</div>
+      </div>
+    </div>
+    <div class="topbar-actions" id="topbarActions"></div>
+  </div>
+  <div class="content" id="pageContent"></div>
+</div>
+
+<!-- PRINT AREA -->
+<div class="print-invoice" id="printArea"></div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBox">
+    <div class="modal-header">
+      <h2 id="modalTitle">Modal</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DATA LAYER
+// ═══════════════════════════════════════════════════════════
+const DB = {
+  get(key) { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } },
+  set(key, val) { localStorage.setItem(key, JSON.stringify(val)); },
+  getObj(key, def={}) { try { return JSON.parse(localStorage.getItem(key)) || def; } catch { return def; } },
+  setObj(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+};
+
+function getData(key) { return DB.get(key); }
+function setData(key, val) { DB.set(key, val); }
+function getSettings() { return DB.getObj('settings', { shopName: 'My Shop', address: '123 Main Street, City', phone: '9876543210' }); }
+function saveSettings(s) { DB.setObj('settings', s); }
+
+// ═══════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════
+function fmt(n) { return '₹' + Number(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtN(n) { return Number(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) { if (!d) return '—'; const p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function nextBillNo(prefix, key) {
+  const all = getData(key);
+  if (!all.length) return prefix + '001';
+  const nums = all.map(x => parseInt((x.billNo||'').replace(/\D/g,''))||0);
+  return prefix + String(Math.max(...nums)+1).padStart(3,'0');
+}
+
+function showToast(msg, type='success') {
+  let t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:20px;right:20px;z-index:9999;padding:12px 20px;border-radius:8px;font-weight:600;font-size:13px;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.15);transition:all 0.3s;background:${type==='success'?'#2e7d32':type==='error'?'#c62828':'#f57f17'};color:#fff`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 2500);
+}
+
+function confirmAction(msg, cb) {
+  if (confirm(msg)) cb();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODAL
+// ═══════════════════════════════════════════════════════════
+function openModal(title, bodyHtml, footerHtml='', large=false) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('modalFooter').innerHTML = footerHtml || '<button class="btn btn-ghost" onclick="closeModal()">Close</button>';
+  const box = document.getElementById('modalBox');
+  box.className = 'modal' + (large?' modal-lg':'');
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+document.getElementById('modalOverlay').addEventListener('click', function(e){if(e.target===this)closeModal();});
+
+// ═══════════════════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════════════════
+function showPage(name) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const clicked = [...document.querySelectorAll('.nav-item')].find(el => el.getAttribute('onclick')?.includes("'"+name+"'"));
+  if (clicked) clicked.classList.add('active');
+  // Sync bottom nav
+  document.querySelectorAll('.bn-item').forEach(el => el.classList.remove('active'));
+  const bnMap = {dashboard:'bn-dashboard', sales:'bn-sales', purchases:'bn-purchases', inventory:'bn-inventory'};
+  if (bnMap[name]) document.getElementById(bnMap[name])?.classList.add('active');
+  closeSidebar();
+  pages[name]();
+}
+
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('show');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('show');
+}
+
+// FAB: context-aware new entry button
+function handleFab() {
+  const page = document.getElementById('pageTitle').textContent;
+  if (page === 'Sales Invoices') openSaleForm();
+  else if (page === 'Purchases') openPurchaseForm();
+  else if (page === 'Inventory') openItemForm();
+  else if (page === 'Party Master') openPartyForm();
+  else if (page === 'Returns') openReturnForm('credit');
+  else showPage('sales'); // default: go to sales
+}
+
+const pageMeta = {
+  dashboard:  { title: 'Dashboard', sub: 'Business overview' },
+  sales:      { title: 'Sales', sub: 'Manage customer bills' },
+  purchases:  { title: 'Purchases', sub: 'Manage purchase bills' },
+  returns:    { title: 'Returns', sub: 'Credit & Debit notes' },
+  inventory:  { title: 'Inventory', sub: 'Item master & stock' },
+  parties:    { title: 'Party Master', sub: 'Customers & Vendors' },
+  outstanding:{ title: 'Outstanding Dues', sub: 'Unpaid & partial invoices' },
+  cashbook:   { title: 'Cash / Bank Register', sub: 'Record receipts & payments' },
+  daybook:    { title: 'Day Book', sub: 'All transactions for a day' },
+  pnl:        { title: 'Profit & Loss', sub: 'Income vs expense summary' },
+  ledger:     { title: 'Party Ledger', sub: 'Account statement' },
+  reports:    { title: 'Reports', sub: 'Monthly summary' },
+  export:     { title: 'Export', sub: 'Download reports as Excel' },
+  settings:   { title: 'Settings', sub: 'Shop configuration' }
+};
+
+function setMeta(name) {
+  const m = pageMeta[name];
+  document.getElementById('pageTitle').textContent = m.title;
+  document.getElementById('pageSubtitle').textContent = m.sub;
+  document.getElementById('topbarActions').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: DASHBOARD
+// ═══════════════════════════════════════════════════════════
+const pages = {};
+
+pages.dashboard = function() {
+  setMeta('dashboard');
+  const sales = getData('sales');
+  const purchases = getData('purchases');
+  const items = getData('items');
+  const returns = getData('returns');
+
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  const monthlySales = sales.filter(s=>s.date?.startsWith(thisMonth)).reduce((a,s)=>a+Number(s.total||0),0);
+  const monthlyPurchases = purchases.filter(p=>p.date?.startsWith(thisMonth)).reduce((a,p)=>a+Number(p.total||0),0);
+  const grossProfit = monthlySales - monthlyPurchases;
+
+  const lowStock = items.filter(i => Number(i.stock||0) <= Number(i.minStock||0));
+  const stockValueCost = items.reduce((a,i)=>a+Number(i.stock||0)*Number(i.purchaseRate||0),0);
+  const pendingSales = sales.filter(s=>(s.status||'unpaid')!=='paid').length;
+  const totalReceivable = sales.filter(s=>(s.status||'unpaid')!=='paid').reduce((a,s)=>a+(Number(s.total||0)-Number(s.paidAmount||0)),0);
+  const pendingPurch = purchases.filter(p=>(p.status||'unpaid')!=='paid').length;
+  const totalPayable = purchases.filter(p=>(p.status||'unpaid')!=='paid').reduce((a,p)=>a+(Number(p.total||0)-Number(p.paidAmount||0)),0);
+
+  // Recent transactions (last 8)
+  let txns = [
+    ...sales.map(s=>({...s, type:'sale', party:s.customer})),
+    ...purchases.map(p=>({...p, type:'purchase', party:p.vendor})),
+    ...returns.map(r=>({...r, type:'return'}))
+  ].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
+
+  const recentHtml = txns.length ? txns.map(t=>`
+    <div class="txn-item">
+      <div class="txn-dot ${t.type}"></div>
+      <div class="txn-info">
+        <div class="name">${t.party||t.partyName||'—'}</div>
+        <div class="meta">${fmtDate(t.date)} · ${t.billNo||''} · <span class="badge badge-${t.type==='sale'?'info':t.type==='purchase'?'warning':'danger'}">${t.type.toUpperCase()}</span></div>
+      </div>
+      <div class="txn-amount">${fmt(t.total||t.amount)}</div>
+    </div>`).join('') : '<p class="empty-state">No recent transactions</p>';
+
+  const lowHtml = lowStock.length ? `<div class="alert alert-danger">⚠️ ${lowStock.length} item(s) are at or below minimum stock level.</div>`+
+    lowStock.map(i=>`<div class="txn-item"><div class="txn-dot" style="background:#c62828"></div><div class="txn-info"><div class="name">${i.name}</div><div class="meta">Stock: <strong>${i.stock} ${i.unit}</strong> · Min: ${i.minStock}</div></div><span class="badge badge-danger">LOW</span></div>`).join('')
+    : `<div class="alert alert-info">✓ All items are adequately stocked.</div>`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="cards-grid">
+      <div class="stat-card accent">
+        <div class="label">Sales This Month</div>
+        <div class="value">${fmt(monthlySales)}</div>
+        <div class="sub">${sales.filter(s=>s.date?.startsWith(thisMonth)).length} invoices</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Purchases This Month</div>
+        <div class="value">${fmt(monthlyPurchases)}</div>
+        <div class="sub">${purchases.filter(p=>p.date?.startsWith(thisMonth)).length} bills</div>
+      </div>
+      <div class="stat-card ${grossProfit>=0?'success':'danger'}">
+        <div class="label">Gross Profit (Month)</div>
+        <div class="value">${fmt(grossProfit)}</div>
+        <div class="sub">${grossProfit>=0?'Profit':'Loss'} this month</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Stock Value (Cost)</div>
+        <div class="value">${fmt(stockValueCost)}</div>
+        <div class="sub">${items.length} items in inventory</div>
+      </div>
+      <div class="stat-card success" style="cursor:pointer" onclick="showPage('outstanding')">
+        <div class="label">Receivable (Due)</div>
+        <div class="value">${fmt(totalReceivable)}</div>
+        <div class="sub">${pendingSales} unpaid invoices →</div>
+      </div>
+      <div class="stat-card danger" style="cursor:pointer" onclick="showPage('outstanding')">
+        <div class="label">Payable (Due)</div>
+        <div class="value">${fmt(totalPayable)}</div>
+        <div class="sub">${pendingPurch} unpaid bills →</div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="section-card">
+        <h3>Recent Transactions</h3>
+        ${recentHtml}
+      </div>
+      <div class="section-card">
+        <h3>Low Stock Alerts</h3>
+        ${lowHtml}
+      </div>
+    </div>
+  `;
+};
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: SALES
+// ═══════════════════════════════════════════════════════════
+pages.sales = function(searchVal='') {
+  setMeta('sales');
+  document.getElementById('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openSaleForm()">+ New Sale</button>`;
+  document.getElementById('pageTitle').textContent = 'Sales';
+
+  let sales = getData('sales');
+  const q = searchVal.toLowerCase();
+  if (q) sales = sales.filter(s => (s.customer||'').toLowerCase().includes(q) || (s.billNo||'').toLowerCase().includes(q));
+  sales = [...sales].sort((a,b)=>b.date.localeCompare(a.date));
+
+  const rows = sales.length ? sales.map(s=>`
+    <tr>
+      <td class="mono">${s.billNo}</td>
+      <td>${fmtDate(s.date)}</td>
+      <td>${s.customer||'—'}</td>
+      <td class="mono">${fmt(s.total)}</td>
+      <td><span class="badge ${s.status==='paid'?'badge-success':s.status==='partial'?'badge-warning':'badge-danger'}">${s.status||'unpaid'}</span></td>
+      <td>
+        <div class="actions-col">
+          <button class="btn btn-outline btn-xs" onclick="viewSale('${s.id}')">View</button>
+          <button class="btn btn-ghost btn-xs" onclick="openSaleForm('${s.id}')">Edit</button>
+          <button class="btn btn-xs" style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db" onclick="printSale('${s.id}')">Print</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteSale('${s.id}')">Del</button>
+        </div>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="6"><div class="empty-state"><p>No sales invoices yet. Create your first sale!</p></div></td></tr>`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="table-wrap">
+      <div class="table-header">
+        <h3>Sales</h3>
+        <div class="search-wrap">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="form-control" style="width:220px" placeholder="Search customer, bill no..." value="${searchVal}" oninput="pages.sales(this.value)">
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Bill No</th><th>Date</th><th>Customer</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+};
+
+function openSaleForm(editId=null) {
+  const sale = editId ? getData('sales').find(s=>s.id===editId) : null;
+  const items = getData('items');
+  const parties = getData('parties').filter(p=>p.type==='customer'||p.type==='both');
+  const billNo = sale ? sale.billNo : nextBillNo('INV-', 'sales');
+
+  const custOptions = parties.map(p=>`<option value="${p.name}" ${sale?.customer===p.name?'selected':''}>${p.name}</option>`).join('');
+  const itemOptions = items.map(i=>`<option value="${i.name}" data-rate="${i.saleRate}" data-unit="${i.unit}">${i.name}</option>`).join('');
+  _saleItemOptions = itemOptions;
+
+  const existingItems = sale?.items || [{ name:'', qty:1, unit:'Pcs', rate:0, amount:0 }];
+  const itemRows = existingItems.map((it,idx)=>buildSaleItemRow(idx, it, itemOptions)).join('');
+
+  // Set page title
+  document.getElementById('pageTitle').textContent = sale ? 'Edit Sale' : 'New Sale';
+  document.getElementById('pageSubtitle').textContent = sale ? 'Update invoice details' : 'Create sale invoice';
+  document.getElementById('topbarActions').innerHTML = '';
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="entry-form-page">
+      <div class="entry-form-header">
+        <h2>${sale ? 'Edit Sale — '+sale.billNo : 'New Sale Entry'}</h2>
+        <button class="btn btn-ghost btn-sm" onclick="pages.sales()">✕ Cancel</button>
+      </div>
+      <div class="entry-form-body">
+        <div class="form-row cols-3" style="margin-bottom:20px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Bill No</label>
+            <input class="form-control mono" id="s_billNo" value="${billNo}" readonly style="background:#f8fafc">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Date</label>
+            <input class="form-control" type="date" id="s_date" value="${sale?.date||today()}">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Customer Name</label>
+            <input class="form-control" id="s_customer" list="custList" value="${sale?.customer||''}" placeholder="Type or select customer...">
+            <datalist id="custList">${custOptions}</datalist>
+          </div>
+        </div>
+
+        <div class="items-table-wrap" id="saleItemsWrap">
+          <table class="items-table">
+            <thead><tr><th style="width:36px">#</th><th style="min-width:180px">Item</th><th style="width:100px">Qty</th><th style="width:70px">Unit</th><th style="width:110px">Rate (₹)</th><th style="width:85px">Disc %</th><th style="width:115px">Disc Amt (₹)</th><th style="width:120px">Amount (₹)</th><th style="width:36px"></th></tr></thead>
+            <tbody id="saleItemsBody">${itemRows}</tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+          <button class="btn btn-outline btn-sm" onclick="addSaleItemRow()">+ Add Row</button>
+          <span style="font-size:12px;color:var(--text-muted)">Enter item name, qty, rate and discount (if any)</span>
+        </div>
+      </div>
+      <div class="entry-form-footer">
+        <button class="btn btn-ghost" onclick="pages.sales()">Cancel</button>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div class="entry-total-box">
+            <span>Total</span>
+            <span id="s_total">${fmt(sale?.total||0)}</span>
+          </div>
+          <button class="btn btn-primary" style="padding:12px 28px;font-size:15px" onclick="saveSale('${editId||''}')">
+            ${sale ? 'Update Sale' : 'Save Invoice'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  calcSaleTotal();
+  setTimeout(() => renumberRows('saleItemsBody'), 50);
+}
+
+let _saleItemIdx = 10;
+let _saleItemOptions = '';
+
+function buildSaleItemRow(idx, it, itemOptions) {
+  const discPct = it.discPct !== undefined ? it.discPct : 0;
+  const discAmt = it.discAmt !== undefined ? it.discAmt : 0;
+  return `<tr id="sir_${idx}">
+    <td class="sno-cell" style="width:28px;color:#999;font-size:12px"></td>
+    <td><input class="form-control" style="font-size:13px" list="itemList_s" value="${it.name||''}" onchange="fillSaleItemRate(this,${idx})" oninput="calcSaleTotal()">
+      <datalist id="itemList_s">${itemOptions}</datalist></td>
+    <td style="width:100px"><input class="form-control mono" id="sir_qty_${idx}" type="number" min="0" step="any" value="${it.qty||1}" oninput="calcSaleItemAmt(${idx})"></td>
+    <td style="width:70px"><input class="form-control" id="sir_unit_${idx}" value="${it.unit||'Pcs'}"></td>
+    <td style="width:100px"><input class="form-control mono" id="sir_rate_${idx}" type="number" min="0" step="any" value="${it.rate||0}" oninput="calcSaleItemAmt(${idx})"></td>
+    <td style="width:80px"><input class="form-control mono" id="sir_discp_${idx}" type="number" min="0" max="100" step="any" value="${discPct}" placeholder="0" oninput="onSaleDiscPct(${idx})" style="text-align:center"></td>
+    <td style="width:110px"><input class="form-control mono" id="sir_disca_${idx}" type="number" min="0" step="any" value="${discAmt}" placeholder="0.00" oninput="onSaleDiscAmt(${idx})"></td>
+    <td style="width:115px"><input class="form-control mono" id="sir_amt_${idx}" value="${fmtN(it.amount||0)}" readonly style="background:#f8fafc;font-weight:600"></td>
+    <td style="width:28px"><button style="border:none;background:none;color:#c62828;cursor:pointer;font-size:16px" onclick="document.getElementById('sir_${idx}').remove();calcSaleTotal();renumberRows('saleItemsBody')">✕</button></td>
+  </tr>`;
+}
+
+function renumberRows(tbodyId) {
+  const rows = document.querySelectorAll('#' + tbodyId + ' tr');
+  rows.forEach((row, i) => {
+    const cell = row.querySelector('.sno-cell');
+    if (cell) cell.textContent = i + 1;
+  });
+}
+
+function addSaleItemRow() {
+  _saleItemIdx++;
+  const tbody = document.getElementById('saleItemsBody');
+  const temp = document.createElement('table');
+  temp.innerHTML = '<tbody>' + buildSaleItemRow(_saleItemIdx, {name:'',qty:1,unit:'Pcs',rate:0,amount:0}, _saleItemOptions) + '</tbody>';
+  tbody.appendChild(temp.querySelector('tr'));
+  renumberRows('saleItemsBody');
+}
+
+function fillSaleItemRate(input, idx) {
+  const items = getData('items');
+  const item = items.find(i=>i.name===input.value);
+  if (item) {
+    document.getElementById('sir_rate_'+idx).value = item.saleRate||0;
+    document.getElementById('sir_unit_'+idx).value = item.unit||'Pcs';
+    calcSaleItemAmt(idx);
+  }
+}
+
+function calcSaleItemAmt(idx) {
+  const qty   = parseFloat(document.getElementById('sir_qty_'+idx)?.value||0);
+  const rate  = parseFloat(document.getElementById('sir_rate_'+idx)?.value||0);
+  const gross = qty * rate;
+  const pct   = parseFloat(document.getElementById('sir_discp_'+idx)?.value||0);
+  // If a disc% is set, always re-derive disc amount from it (so changing qty/rate auto-updates disc amt)
+  let discA;
+  if (pct > 0) {
+    discA = parseFloat((gross * pct / 100).toFixed(2));
+    const daEl = document.getElementById('sir_disca_'+idx);
+    if (daEl) daEl.value = discA;
+  } else {
+    discA = parseFloat(document.getElementById('sir_disca_'+idx)?.value||0);
+  }
+  const amt = Math.max(0, gross - discA);
+  const el = document.getElementById('sir_amt_'+idx);
+  if (el) el.value = fmtN(amt);
+  calcSaleTotal();
+}
+
+function onSaleDiscPct(idx) {
+  const qty   = parseFloat(document.getElementById('sir_qty_'+idx)?.value||0);
+  const rate  = parseFloat(document.getElementById('sir_rate_'+idx)?.value||0);
+  const pct   = parseFloat(document.getElementById('sir_discp_'+idx)?.value||0);
+  const gross = qty * rate;
+  const discA = parseFloat((gross * pct / 100).toFixed(2));
+  const daEl  = document.getElementById('sir_disca_'+idx);
+  if (daEl) daEl.value = discA;
+  calcSaleItemAmt(idx);
+}
+
+function onSaleDiscAmt(idx) {
+  const qty   = parseFloat(document.getElementById('sir_qty_'+idx)?.value||0);
+  const rate  = parseFloat(document.getElementById('sir_rate_'+idx)?.value||0);
+  const discA = parseFloat(document.getElementById('sir_disca_'+idx)?.value||0);
+  const gross = qty * rate;
+  const pct   = gross > 0 ? parseFloat((discA / gross * 100).toFixed(2)) : 0;
+  const dpEl  = document.getElementById('sir_discp_'+idx);
+  if (dpEl) dpEl.value = pct;
+  calcSaleItemAmt(idx);
+}
+
+function calcSaleTotal() {
+  const rows = document.querySelectorAll('#saleItemsBody tr');
+  let total = 0;
+  rows.forEach(row => {
+    const id = row.id?.replace('sir_','');
+    const qty   = parseFloat(document.getElementById('sir_qty_'+id)?.value||0);
+    const rate  = parseFloat(document.getElementById('sir_rate_'+id)?.value||0);
+    const discA = parseFloat(document.getElementById('sir_disca_'+id)?.value||0);
+    total += Math.max(0, qty * rate - discA);
+  });
+  const el = document.getElementById('s_total');
+  if (el) el.textContent = fmt(total);
+  return total;
+}
+
+function getSaleItemsFromForm() {
+  const rows = document.querySelectorAll('#saleItemsBody tr');
+  const items = [];
+  rows.forEach(row => {
+    const id = row.id?.replace('sir_','');
+    const nameEl = row.querySelector('input[list]');
+    const name   = nameEl?.value||'';
+    const qty    = parseFloat(document.getElementById('sir_qty_'+id)?.value||0);
+    const unit   = document.getElementById('sir_unit_'+id)?.value||'Pcs';
+    const rate   = parseFloat(document.getElementById('sir_rate_'+id)?.value||0);
+    const discPct= parseFloat(document.getElementById('sir_discp_'+id)?.value||0);
+    const discAmt= parseFloat(document.getElementById('sir_disca_'+id)?.value||0);
+    const amount = Math.max(0, qty * rate - discAmt);
+    if (name && qty > 0) items.push({ name, qty, unit, rate, discPct, discAmt, amount });
+  });
+  return items;
+}
+
+function saveSale(editId) {
+  const billNo = document.getElementById('s_billNo').value;
+  const date = document.getElementById('s_date').value;
+  const customer = document.getElementById('s_customer').value.trim();
+  const saleItems = getSaleItemsFromForm();
+
+  if (!customer) return showToast('Customer name required', 'error');
+  if (!saleItems.length) return showToast('Add at least one item', 'error');
+
+  const total = saleItems.reduce((a,i)=>a+i.amount,0);
+  const sales = getData('sales');
+
+  if (editId) {
+    // Reverse old stock, apply new
+    const old = sales.find(s=>s.id===editId);
+    if (old) reverseStockForSale(old);
+    const idx = sales.findIndex(s=>s.id===editId);
+    sales[idx] = { ...sales[idx], billNo, date, customer, items: saleItems, total };
+    applyStockForSale(sales[idx]);
+  } else {
+    const newSale = { id: uid(), billNo, date, customer, items: saleItems, total, paidAmount:0, status:'unpaid' };
+    sales.push(newSale);
+    applyStockForSale(newSale);
+  }
+
+  setData('sales', sales);
+  closeModal();
+  showToast('Sale invoice saved!');
+  pages.sales();
+}
+
+function applyStockForSale(sale) {
+  const items = getData('items');
+  sale.items.forEach(si => {
+    const idx = items.findIndex(i=>i.name===si.name);
+    if (idx>=0) items[idx].stock = Math.max(0, Number(items[idx].stock||0) - Number(si.qty||0));
+  });
+  setData('items', items);
+}
+
+function reverseStockForSale(sale) {
+  const items = getData('items');
+  sale.items.forEach(si => {
+    const idx = items.findIndex(i=>i.name===si.name);
+    if (idx>=0) items[idx].stock = Number(items[idx].stock||0) + Number(si.qty||0);
+  });
+  setData('items', items);
+}
+
+function deleteSale(id) {
+  confirmAction('Delete this sale invoice? Stock will be reversed.', () => {
+    const sales = getData('sales');
+    const sale = sales.find(s=>s.id===id);
+    if (sale) reverseStockForSale(sale);
+    setData('sales', sales.filter(s=>s.id!==id));
+    showToast('Invoice deleted');
+    pages.sales();
+  });
+}
+
+function viewSale(id) {
+  const sale = getData('sales').find(s=>s.id===id);
+  if (!sale) return;
+  const s = getSettings();
+  openModal('Invoice: '+sale.billNo, `
+    <div style="font-family:'DM Mono',monospace;font-size:13px">
+      <div style="text-align:center;margin-bottom:16px;padding-bottom:16px;border-bottom:2px solid #e5e7eb">
+        <div style="font-size:20px;font-weight:700;font-family:'DM Sans',sans-serif">${s.shopName}</div>
+        <div style="color:#666">${s.address}</div>
+        <div style="color:#666">Ph: ${s.phone}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px">
+        <div><b>Bill No:</b> ${sale.billNo}<br><b>Customer:</b> ${sale.customer}</div>
+        <div style="text-align:right"><b>Date:</b> ${fmtDate(sale.date)}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead><tr style="background:#f8fafc">${['#','Item','Qty','Unit','Rate','Discount','Amount'].map(h=>`<th style="padding:7px 10px;border:1px solid #e5e7eb;text-align:left;font-weight:700">${h}</th>`).join('')}</tr></thead>
+        <tbody>${sale.items.map((it,i)=>`<tr>${[i+1,it.name,it.qty,it.unit,fmtN(it.rate),(it.discPct||0)+'% / ₹'+(it.discAmt?fmtN(it.discAmt):'0.00'),fmtN(it.amount)].map(v=>`<td style="padding:7px 10px;border:1px solid #e5e7eb">${v}</td>`).join('')}</tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="6" style="padding:7px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:700">Grand Total</td><td style="padding:7px 10px;border:1px solid #e5e7eb;font-weight:700">₹${fmtN(sale.total)}</td></tr></tfoot>
+      </table>
+      <div style="margin-top:30px;text-align:right;font-family:'DM Sans',sans-serif">Authorized Signatory: __________________</div>
+    </div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Close</button><button class="btn btn-primary" onclick="printSale('${id}')">🖨 Print</button>`, true);
+}
+
+function printSale(id) {
+  const sale = getData('sales').find(s=>s.id===id);
+  if (!sale) return;
+  const s = getSettings();
+  const area = document.getElementById('printArea');
+  area.style.display = 'block';
+  area.innerHTML = `
+    <style>@media screen{#printArea{display:none}}</style>
+    <div style="font-family:'DM Sans',sans-serif;max-width:700px;margin:0 auto;padding:20px">
+      <div style="text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #333">
+        <div style="font-size:24px;font-weight:800">${s.shopName}</div>
+        <div style="font-size:13px;color:#555;margin-top:4px">${s.address}</div>
+        <div style="font-size:13px;color:#555">Phone: ${s.phone}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:20px;font-size:13px">
+        <div><div><b>Bill No:</b> ${sale.billNo}</div><div><b>Customer:</b> ${sale.customer||'—'}</div></div>
+        <div style="text-align:right"><div><b>Date:</b> ${fmtDate(sale.date)}</div></div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:#f0f0f0">${['#','Item','Qty','Unit','Rate (₹)','Discount','Amount (₹)'].map(h=>`<th style="padding:9px 12px;border:1px solid #ccc;text-align:left">${h}</th>`).join('')}</tr></thead>
+        <tbody>${sale.items.map((it,i)=>`<tr>${[i+1,it.name,it.qty,it.unit,fmtN(it.rate),it.discAmt>0?it.discPct+'% (₹'+fmtN(it.discAmt)+')':'—',fmtN(it.amount)].map(v=>`<td style="padding:8px 12px;border:1px solid #ccc">${v}</td>`).join('')}</tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="5" style="padding:9px 12px;border:1px solid #ccc;text-align:right;font-weight:700">Grand Total</td><td style="padding:9px 12px;border:1px solid #ccc;font-weight:800;font-size:15px">₹${fmtN(sale.total)}</td></tr></tfoot>
+      </table>
+      <div style="margin-top:60px;display:flex;justify-content:space-between;font-size:13px">
+        <div>Received by: __________________</div>
+        <div>Authorized Signatory: __________________</div>
+      </div>
+    </div>`;
+  window.print();
+  setTimeout(() => { area.innerHTML = ''; area.style.display = 'none'; }, 500);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: PURCHASES
+// ═══════════════════════════════════════════════════════════
+pages.purchases = function(searchVal='') {
+  setMeta('purchases');
+  document.getElementById('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openPurchaseForm()">+ New Purchase</button>`;
+
+  let purchases = getData('purchases');
+  const q = searchVal.toLowerCase();
+  if (q) purchases = purchases.filter(p => (p.vendor||'').toLowerCase().includes(q) || (p.billNo||'').toLowerCase().includes(q));
+  purchases = [...purchases].sort((a,b)=>b.date.localeCompare(a.date));
+
+  const rows = purchases.length ? purchases.map(p=>`
+    <tr>
+      <td class="mono">${p.billNo}</td>
+      <td>${fmtDate(p.date)}</td>
+      <td>${p.vendor||'—'}</td>
+      <td class="mono">${fmt(p.total)}</td>
+      <td><span class="badge ${p.status==='paid'?'badge-success':p.status==='partial'?'badge-warning':'badge-danger'}">${p.status||'unpaid'}</span></td>
+      <td>
+        <div class="actions-col">
+          <button class="btn btn-outline btn-xs" onclick="viewPurchase('${p.id}')">View</button>
+          <button class="btn btn-ghost btn-xs" onclick="openPurchaseForm('${p.id}')">Edit</button>
+          <button class="btn btn-danger btn-xs" onclick="deletePurchase('${p.id}')">Del</button>
+        </div>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="6"><div class="empty-state"><p>No purchase bills yet.</p></div></td></tr>`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="table-wrap">
+      <div class="table-header">
+        <h3>Purchase Bills</h3>
+        <div class="search-wrap">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="form-control" style="width:220px" placeholder="Search supplier, bill no..." value="${searchVal}" oninput="pages.purchases(this.value)">
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Bill No</th><th>Date</th><th>Supplier</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+};
+
+function openPurchaseForm(editId=null) {
+  const purch = editId ? getData('purchases').find(x=>x.id===editId) : null;
+  const items = getData('items');
+  const parties = getData('parties').filter(p=>p.type==='vendor'||p.type==='both');
+  const billNo = purch ? purch.billNo : nextBillNo('PUR-', 'purchases');
+  const vendorOptions = parties.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+  const itemOptions = items.map(i=>`<option value="${i.name}" data-rate="${i.purchaseRate}" data-unit="${i.unit}">${i.name}</option>`).join('');
+  _purchItemOptions = itemOptions;
+  const existingItems = purch?.items || [{name:'',qty:1,unit:'Pcs',rate:0,amount:0}];
+  const itemRows = existingItems.map((it,idx)=>buildPurchaseItemRow(idx, it, itemOptions)).join('');
+
+  // Set page title
+  document.getElementById('pageTitle').textContent = purch ? 'Edit Purchase' : 'New Purchase';
+  document.getElementById('pageSubtitle').textContent = purch ? 'Update purchase details' : 'Record purchase bill';
+  document.getElementById('topbarActions').innerHTML = '';
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="entry-form-page">
+      <div class="entry-form-header">
+        <h2>${purch ? 'Edit Purchase — '+purch.billNo : 'New Purchase Entry'}</h2>
+        <button class="btn btn-ghost btn-sm" onclick="pages.purchases()">✕ Cancel</button>
+      </div>
+      <div class="entry-form-body">
+        <div class="form-row cols-3" style="margin-bottom:20px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Bill No</label>
+            <input class="form-control mono" id="p_billNo" value="${billNo}" style="background:#f8fafc">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Date</label>
+            <input class="form-control" type="date" id="p_date" value="${purch?.date||today()}">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Supplier Name</label>
+            <input class="form-control" id="p_vendor" list="vendorList" value="${purch?.vendor||''}" placeholder="Type or select supplier...">
+            <datalist id="vendorList">${vendorOptions}</datalist>
+          </div>
+        </div>
+
+        <div class="items-table-wrap" id="purchItemsWrap">
+          <table class="items-table">
+            <thead><tr><th style="width:36px">#</th><th style="min-width:180px">Item</th><th style="width:100px">Qty</th><th style="width:70px">Unit</th><th style="width:110px">Purch Rate (₹)</th><th style="width:85px">Disc %</th><th style="width:115px">Disc Amt (₹)</th><th style="width:110px">Sale Rate (₹)</th><th style="width:120px">Amount (₹)</th><th style="width:36px"></th></tr></thead>
+            <tbody id="purchItemsBody">${itemRows}</tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+          <button class="btn btn-outline btn-sm" onclick="addPurchItemRow()">+ Add Row</button>
+          <span style="font-size:12px;color:var(--text-muted)">💡 New item? Type a new name — it will be auto-added to Inventory.</span>
+        </div>
+      </div>
+      <div class="entry-form-footer">
+        <button class="btn btn-ghost" onclick="pages.purchases()">Cancel</button>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div class="entry-total-box">
+            <span>Total</span>
+            <span id="p_total">${fmt(purch?.total||0)}</span>
+          </div>
+          <button class="btn btn-primary" style="padding:12px 28px;font-size:15px" onclick="savePurchase('${editId||''}')">
+            ${purch ? 'Update Purchase' : 'Save Purchase'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  calcPurchTotal();
+  setTimeout(() => renumberRows('purchItemsBody'), 50);
+}
+
+let _currentViewId = null;
+let _purchItemIdx = 10;
+let _purchItemOptions = '';
+
+function buildPurchaseItemRow(idx, it, itemOptions) {
+  const saleRateVal = it.saleRate !== undefined ? it.saleRate : (it.rate ? Math.round(it.rate * 1.3) : 0);
+  const discPct = it.discPct !== undefined ? it.discPct : 0;
+  const discAmt = it.discAmt !== undefined ? it.discAmt : 0;
+  return `<tr id="pir_${idx}">
+    <td class="sno-cell" style="width:28px;color:#999;font-size:12px"></td>
+    <td><input class="form-control" style="font-size:13px" list="itemList_p" value="${it.name||''}" onchange="fillPurchItemRate(this,${idx})" oninput="calcPurchTotal()">
+      <datalist id="itemList_p">${itemOptions}</datalist></td>
+    <td style="width:100px"><input class="form-control mono" id="pir_qty_${idx}" type="number" min="0" step="any" value="${it.qty||1}" oninput="calcPurchItemAmt(${idx})"></td>
+    <td style="width:70px"><input class="form-control" id="pir_unit_${idx}" value="${it.unit||'Pcs'}"></td>
+    <td style="width:100px"><input class="form-control mono" id="pir_rate_${idx}" type="number" min="0" step="any" value="${it.rate||0}" oninput="calcPurchItemAmt(${idx})"></td>
+    <td style="width:80px"><input class="form-control mono" id="pir_discp_${idx}" type="number" min="0" max="100" step="any" value="${discPct}" placeholder="0" oninput="onPurchDiscPct(${idx})" style="text-align:center"></td>
+    <td style="width:110px"><input class="form-control mono" id="pir_disca_${idx}" type="number" min="0" step="any" value="${discAmt}" placeholder="0.00" oninput="onPurchDiscAmt(${idx})"></td>
+    <td style="width:100px"><input class="form-control mono" id="pir_srate_${idx}" type="number" min="0" step="any" value="${saleRateVal}" placeholder="Sale rate" title="Sale rate for inventory"></td>
+    <td style="width:115px"><input class="form-control mono" id="pir_amt_${idx}" value="${fmtN(it.amount||0)}" readonly style="background:#f8fafc;font-weight:600"></td>
+    <td style="width:28px"><button style="border:none;background:none;color:#c62828;cursor:pointer;font-size:16px" onclick="document.getElementById('pir_${idx}').remove();calcPurchTotal();renumberRows('purchItemsBody')">✕</button></td>
+  </tr>`;
+}
+
+function addPurchItemRow() {
+  _purchItemIdx++;
+  const tbody = document.getElementById('purchItemsBody');
+  const temp = document.createElement('table');
+  temp.innerHTML = '<tbody>' + buildPurchaseItemRow(_purchItemIdx, {name:'',qty:1,unit:'Pcs',rate:0,amount:0}, _purchItemOptions) + '</tbody>';
+  tbody.appendChild(temp.querySelector('tr'));
+  renumberRows('purchItemsBody');
+}
+
+function fillPurchItemRate(input, idx) {
+  const items = getData('items');
+  const item = items.find(i=>i.name===input.value);
+  if (item) {
+    document.getElementById('pir_rate_'+idx).value = item.purchaseRate||0;
+    document.getElementById('pir_srate_'+idx).value = item.saleRate||0;
+    document.getElementById('pir_unit_'+idx).value = item.unit||'Pcs';
+    calcPurchItemAmt(idx);
+  }
+  // if not in inventory, leave blank for user to fill
+}
+
+function calcPurchItemAmt(idx) {
+  const qty   = parseFloat(document.getElementById('pir_qty_'+idx)?.value||0);
+  const rate  = parseFloat(document.getElementById('pir_rate_'+idx)?.value||0);
+  const gross = qty * rate;
+  const pct   = parseFloat(document.getElementById('pir_discp_'+idx)?.value||0);
+  // If a disc% is set, always re-derive disc amount from it (so changing qty/rate auto-updates disc amt)
+  let discA;
+  if (pct > 0) {
+    discA = parseFloat((gross * pct / 100).toFixed(2));
+    const daEl = document.getElementById('pir_disca_'+idx);
+    if (daEl) daEl.value = discA;
+  } else {
+    discA = parseFloat(document.getElementById('pir_disca_'+idx)?.value||0);
+  }
+  const amt = Math.max(0, gross - discA);
+  const el = document.getElementById('pir_amt_'+idx);
+  if (el) el.value = fmtN(amt);
+  calcPurchTotal();
+}
+
+function onPurchDiscPct(idx) {
+  const qty   = parseFloat(document.getElementById('pir_qty_'+idx)?.value||0);
+  const rate  = parseFloat(document.getElementById('pir_rate_'+idx)?.value||0);
+  const pct   = parseFloat(document.getElementById('pir_discp_'+idx)?.value||0);
+  const gross = qty * rate;
+  const discA = parseFloat((gross * pct / 100).toFixed(2));
+  const daEl  = document.getElementById('pir_disca_'+idx);
+  if (daEl) daEl.value = discA;
+  calcPurchItemAmt(idx);
+}
+
+function onPurchDiscAmt(idx) {
+  const qty   = parseFloat(document.getElementById('pir_qty_'+idx)?.value||0);
+  const rate  = parseFloat(document.getElementById('pir_rate_'+idx)?.value||0);
+  const discA = parseFloat(document.getElementById('pir_disca_'+idx)?.value||0);
+  const gross = qty * rate;
+  const pct   = gross > 0 ? parseFloat((discA / gross * 100).toFixed(2)) : 0;
+  const dpEl  = document.getElementById('pir_discp_'+idx);
+  if (dpEl) dpEl.value = pct;
+  calcPurchItemAmt(idx);
+}
+
+function calcPurchTotal() {
+  const rows = document.querySelectorAll('#purchItemsBody tr');
+  let total = 0;
+  rows.forEach(row => {
+    const id    = row.id?.replace('pir_','');
+    const qty   = parseFloat(document.getElementById('pir_qty_'+id)?.value||0);
+    const rate  = parseFloat(document.getElementById('pir_rate_'+id)?.value||0);
+    const discA = parseFloat(document.getElementById('pir_disca_'+id)?.value||0);
+    total += Math.max(0, qty * rate - discA);
+  });
+  const el = document.getElementById('p_total');
+  if (el) el.textContent = fmt(total);
+}
+
+function getPurchItemsFromForm() {
+  const rows = document.querySelectorAll('#purchItemsBody tr');
+  const items = [];
+  rows.forEach(row => {
+    const id      = row.id?.replace('pir_','');
+    const nameEl  = row.querySelector('input[list]');
+    const name    = nameEl?.value||'';
+    const qty     = parseFloat(document.getElementById('pir_qty_'+id)?.value||0);
+    const unit    = document.getElementById('pir_unit_'+id)?.value||'Pcs';
+    const rate    = parseFloat(document.getElementById('pir_rate_'+id)?.value||0);
+    const discPct = parseFloat(document.getElementById('pir_discp_'+id)?.value||0);
+    const discAmt = parseFloat(document.getElementById('pir_disca_'+id)?.value||0);
+    const saleRate= parseFloat(document.getElementById('pir_srate_'+id)?.value||0);
+    const amount  = Math.max(0, qty * rate - discAmt);
+    if (name && qty > 0) items.push({ name, qty, unit, rate, discPct, discAmt, saleRate, amount });
+  });
+  return items;
+}
+
+function savePurchase(editId='') {
+  const billNo = document.getElementById('p_billNo').value;
+  const date = document.getElementById('p_date').value;
+  const vendor = document.getElementById('p_vendor').value.trim();
+  const purchItems = getPurchItemsFromForm();
+
+  if (!vendor) return showToast('Vendor name required', 'error');
+  if (!purchItems.length) return showToast('Add at least one item', 'error');
+
+  const total = purchItems.reduce((a,i)=>a+i.amount,0);
+  const purchases = getData('purchases');
+  let items = getData('items');
+
+  if (editId) {
+    // Reverse old stock first
+    const old = purchases.find(x=>x.id===editId);
+    if (old) {
+      old.items.forEach(pi => {
+        const idx = items.findIndex(i=>i.name===pi.name);
+        if (idx>=0) items[idx].stock = Math.max(0, Number(items[idx].stock||0) - Number(pi.qty||0));
+      });
+    }
+    const pidx = purchases.findIndex(x=>x.id===editId);
+    purchases[pidx] = { ...purchases[pidx], billNo, date, vendor, items: purchItems, total };
+  } else {
+    purchases.push({ id: uid(), billNo, date, vendor, items: purchItems, total, paidAmount:0, status:'unpaid' });
+  }
+
+  // Update or auto-create inventory items
+  let newItemsAdded = 0;
+  purchItems.forEach(pi => {
+    const idx = items.findIndex(i=>i.name===pi.name);
+    if (idx >= 0) {
+      // Existing item — update stock and rates
+      items[idx].stock = Number(items[idx].stock||0) + Number(pi.qty||0);
+      items[idx].purchaseRate = pi.rate;
+      if (pi.saleRate > 0) items[idx].saleRate = pi.saleRate;
+    } else {
+      // New item — auto-add to inventory
+      items.push({
+        id: uid(),
+        name: pi.name,
+        unit: pi.unit || 'Pcs',
+        stock: Number(pi.qty||0),
+        purchaseRate: pi.rate,
+        saleRate: pi.saleRate || 0,
+        minStock: 5
+      });
+      newItemsAdded++;
+    }
+  });
+
+  setData('purchases', purchases);
+  setData('items', items);
+  closeModal();
+  const msg = newItemsAdded > 0
+    ? `Purchase saved! ${newItemsAdded} new item(s) added to inventory.`
+    : 'Purchase saved & stock updated!';
+  showToast(msg);
+  pages.purchases();
+}
+
+function viewPurchase(id) {
+  const p = getData('purchases').find(x=>x.id===id);
+  if (!p) return;
+  _currentViewId = id;
+  openModal('Purchase: '+p.billNo, `
+    <div style="font-family:'DM Mono',monospace;font-size:13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px">
+        <div><b>Bill No:</b> ${p.billNo}<br><b>Supplier:</b> ${p.vendor}</div>
+        <div style="text-align:right"><b>Date:</b> ${fmtDate(p.date)}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#f8fafc">${['#','Item','Qty','Unit','Rate','Discount','Amount'].map(h=>`<th style="padding:8px 10px;border:1px solid #e5e7eb;text-align:left">${h}</th>`).join('')}</tr></thead>
+        <tbody>${p.items.map((it,i)=>`<tr>${[i+1,it.name,it.qty,it.unit,fmtN(it.rate),it.discAmt>0?it.discPct+'% (₹'+fmtN(it.discAmt)+')':'—',fmtN(it.amount)].map(v=>`<td style="padding:7px 10px;border:1px solid #e5e7eb">${v}</td>`).join('')}</tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="6" style="padding:8px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:700">Total</td><td style="padding:8px 10px;border:1px solid #e5e7eb;font-weight:700">₹${fmtN(p.total)}</td></tr></tfoot>
+      </table>
+    </div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Close</button><button class="btn btn-outline" onclick="closeModal();openPurchaseForm(_currentViewId)">Edit</button>`);
+}
+
+function deletePurchase(id) {
+  confirmAction('Delete this purchase? Stock added from this purchase will be reversed.', () => {
+    const purchases = getData('purchases');
+    const p = purchases.find(x=>x.id===id);
+    if (p) {
+      const items = getData('items');
+      p.items.forEach(pi => {
+        const idx = items.findIndex(i=>i.name===pi.name);
+        if (idx>=0) items[idx].stock = Math.max(0, Number(items[idx].stock||0) - Number(pi.qty||0));
+      });
+      setData('items', items);
+    }
+    setData('purchases', purchases.filter(x=>x.id!==id));
+    showToast('Purchase deleted');
+    pages.purchases();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: RETURNS
+// ═══════════════════════════════════════════════════════════
+pages.returns = function() {
+  setMeta('returns');
+  document.getElementById('topbarActions').innerHTML = `
+    <button class="btn btn-outline" onclick="openReturnForm('credit')">+ Credit Note (Sales Return)</button>
+    <button class="btn btn-primary" onclick="openReturnForm('debit')">+ Debit Note (Purchase Return)</button>
+  `;
+
+  const returns = getData('returns').sort((a,b)=>b.date.localeCompare(a.date));
+
+  const rows = returns.length ? returns.map(r=>`
+    <tr>
+      <td class="mono">${r.noteNo}</td>
+      <td>${fmtDate(r.date)}</td>
+      <td><span class="badge ${r.type==='credit'?'badge-info':'badge-warning'}">${r.type==='credit'?'Credit Note':'Debit Note'}</span></td>
+      <td>${r.partyName}</td>
+      <td class="mono">${r.originalBillNo}</td>
+      <td class="mono">${fmt(r.amount)}</td>
+      <td>${r.reason||'—'}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="deleteReturn('${r.id}')">Del</button></td>
+    </tr>`).join('') : `<tr><td colspan="8"><div class="empty-state"><p>No returns recorded yet.</p></div></td></tr>`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="alert alert-info" style="margin-bottom:16px">
+      <strong>Credit Note</strong> = Sales Return (customer returns goods). 
+      <strong>Debit Note</strong> = Purchase Return (you return goods to vendor).
+    </div>
+    <div class="table-wrap">
+      <div class="table-header"><h3>Returns</h3></div>
+      <table>
+        <thead><tr><th>Note No</th><th>Date</th><th>Type</th><th>Party</th><th>Against Bill</th><th>Amount</th><th>Reason</th><th>Action</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+};
+
+function openReturnForm(type) {
+  const parties = getData('parties');
+  const partyOpts = parties.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+  const noteNo = nextBillNo(type==='credit'?'CN-':'DN-', 'returns');
+  const title = type==='credit' ? 'New Credit Note (Sales Return)' : 'New Debit Note (Purchase Return)';
+
+  openModal(title, `
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Note No</label>
+        <input class="form-control mono" id="r_noteNo" value="${noteNo}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-control" type="date" id="r_date" value="${today()}">
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Party Name</label>
+        <input class="form-control" id="r_party" list="partyListR" placeholder="Type or select...">
+        <datalist id="partyListR">${partyOpts}</datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Original Bill No</label>
+        <input class="form-control mono" id="r_billNo" placeholder="${type==='credit'?'INV-001':'PUR-001'}">
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Amount (₹)</label>
+        <input class="form-control mono" id="r_amount" type="number" min="0" step="any" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reason</label>
+        <input class="form-control" id="r_reason" placeholder="Damaged goods, Wrong item, etc.">
+      </div>
+    </div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveReturn('${type}')">Save ${type==='credit'?'Credit':'Debit'} Note</button>`);
+}
+
+function saveReturn(type) {
+  const noteNo = document.getElementById('r_noteNo').value;
+  const date = document.getElementById('r_date').value;
+  const partyName = document.getElementById('r_party').value.trim();
+  const originalBillNo = document.getElementById('r_billNo').value.trim();
+  const amount = parseFloat(document.getElementById('r_amount').value||0);
+  const reason = document.getElementById('r_reason').value.trim();
+
+  if (!partyName || !originalBillNo || !amount) return showToast('Fill all required fields', 'error');
+
+  const returns = getData('returns');
+  returns.push({ id: uid(), noteNo, date, type, partyName, originalBillNo, amount, reason });
+  setData('returns', returns);
+  closeModal();
+  showToast('Return recorded!');
+  pages.returns();
+}
+
+function deleteReturn(id) {
+  confirmAction('Delete this return record?', () => {
+    setData('returns', getData('returns').filter(r=>r.id!==id));
+    showToast('Return deleted');
+    pages.returns();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: INVENTORY
+// ═══════════════════════════════════════════════════════════
+pages.inventory = function(searchVal='') {
+  setMeta('inventory');
+  document.getElementById('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openItemForm()">+ Add Item</button>`;
+
+  let items = getData('items');
+  const q = searchVal.toLowerCase();
+  if (q) items = items.filter(i=>(i.name||'').toLowerCase().includes(q));
+
+  const rows = items.length ? items.map(i => {
+    const isLow = Number(i.stock||0) <= Number(i.minStock||0);
+    return `<tr>
+      <td><strong>${i.name}</strong></td>
+      <td><span class="badge badge-muted">${i.unit||'Pcs'}</span></td>
+      <td class="mono">${fmt(i.purchaseRate)}</td>
+      <td class="mono">${fmt(i.saleRate)}</td>
+      <td>
+        <span class="mono">${i.stock||0}</span>
+        ${isLow?`<span class="badge badge-danger" style="margin-left:6px">LOW</span>`:''}
+      </td>
+      <td>${i.minStock||0}</td>
+      <td>
+        <div class="actions-col">
+          <button class="btn btn-outline btn-xs" onclick="openItemForm('${i.id}')">Edit</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('${i.id}')">Del</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7"><div class="empty-state"><p>No items yet. Add your first inventory item!</p></div></td></tr>`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="table-wrap">
+      <div class="table-header">
+        <h3>Item Master</h3>
+        <div class="search-wrap">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="form-control" style="width:220px" placeholder="Search items..." value="${searchVal}" oninput="pages.inventory(this.value)">
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Item Name</th><th>Unit</th><th>Purchase Rate</th><th>Sale Rate</th><th>Stock</th><th>Min Stock</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+};
+
+function openItemForm(editId=null) {
+  const item = editId ? getData('items').find(i=>i.id===editId) : null;
+  openModal(item?'Edit Item':'Add Item', `
+    <div class="form-group">
+      <label class="form-label">Item Name *</label>
+      <input class="form-control" id="i_name" value="${item?.name||''}" placeholder="e.g., Two-Wheeler Chain">
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Unit</label>
+        <select class="form-control" id="i_unit">
+          ${['Pcs','Set','Nos','Ltr','Kg','Pair'].map(u=>`<option ${(item?.unit||'Pcs')===u?'selected':''}>${u}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Opening Stock</label>
+        <input class="form-control mono" id="i_stock" type="number" min="0" step="any" value="${item?.stock||0}">
+      </div>
+    </div>
+    <div class="form-row cols-3">
+      <div class="form-group">
+        <label class="form-label">Purchase Rate (₹)</label>
+        <input class="form-control mono" id="i_purchaseRate" type="number" min="0" step="any" value="${item?.purchaseRate||0}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sale Rate (₹)</label>
+        <input class="form-control mono" id="i_saleRate" type="number" min="0" step="any" value="${item?.saleRate||0}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Min Stock Alert</label>
+        <input class="form-control mono" id="i_minStock" type="number" min="0" value="${item?.minStock||5}">
+      </div>
+    </div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveItem('${editId||''}')">Save Item</button>`);
+}
+
+function saveItem(editId) {
+  const name = document.getElementById('i_name').value.trim();
+  if (!name) return showToast('Item name required', 'error');
+  const itemData = {
+    name,
+    unit: document.getElementById('i_unit').value,
+    stock: parseFloat(document.getElementById('i_stock').value||0),
+    purchaseRate: parseFloat(document.getElementById('i_purchaseRate').value||0),
+    saleRate: parseFloat(document.getElementById('i_saleRate').value||0),
+    minStock: parseFloat(document.getElementById('i_minStock').value||5),
+  };
+
+  const items = getData('items');
+  if (editId) {
+    const idx = items.findIndex(i=>i.id===editId);
+    items[idx] = { ...items[idx], ...itemData };
+  } else {
+    // check duplicate
+    if (items.find(i=>i.name.toLowerCase()===name.toLowerCase())) return showToast('Item with this name already exists', 'error');
+    items.push({ id: uid(), ...itemData });
+  }
+  setData('items', items);
+  closeModal();
+  showToast('Item saved!');
+  pages.inventory();
+}
+
+function deleteItem(id) {
+  confirmAction('Delete this item from inventory?', () => {
+    setData('items', getData('items').filter(i=>i.id!==id));
+    showToast('Item deleted');
+    pages.inventory();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: PARTIES
+// ═══════════════════════════════════════════════════════════
+pages.parties = function(searchVal='') {
+  setMeta('parties');
+  document.getElementById('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openPartyForm()">+ Add Party</button>`;
+
+  let parties = getData('parties');
+  const q = searchVal.toLowerCase();
+  if (q) parties = parties.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.phone||'').includes(q));
+
+  const rows = parties.length ? parties.map(p=>`
+    <tr>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.phone||'—'}</td>
+      <td>${p.address||'—'}</td>
+      <td><span class="badge ${p.type==='customer'?'badge-info':p.type==='vendor'?'badge-warning':'badge-success'}">${p.type==='vendor'?'Supplier':p.type}</span></td>
+      <td>
+        <div class="actions-col">
+          <button class="btn btn-outline btn-xs" onclick="showPage('ledger');setTimeout(()=>preSelectLedgerParty('${p.name}'),100)">Ledger</button>
+          <button class="btn btn-ghost btn-xs" onclick="openPartyForm('${p.id}')">Edit</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteParty('${p.id}')">Del</button>
+        </div>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state"><p>No parties yet.</p></div></td></tr>`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="table-wrap">
+      <div class="table-header">
+        <h3>Party Master</h3>
+        <div class="search-wrap">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="form-control" style="width:220px" placeholder="Search parties..." value="${searchVal}" oninput="pages.parties(this.value)">
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Type</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+};
+
+function openPartyForm(editId=null) {
+  const p = editId ? getData('parties').find(x=>x.id===editId) : null;
+  openModal(p?'Edit Party':'Add Party', `
+    <div class="form-group">
+      <label class="form-label">Name *</label>
+      <input class="form-control" id="pt_name" value="${p?.name||''}">
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input class="form-control mono" id="pt_phone" value="${p?.phone||''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-control" id="pt_type">
+          ${['customer','vendor','both'].map(t=>`<option value="${t}" ${(p?.type||'customer')===t?'selected':''}>${t==='vendor'?'Supplier':t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Address</label>
+      <input class="form-control" id="pt_address" value="${p?.address||''}">
+    </div>
+  `, `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveParty('${editId||''}')">Save Party</button>`);
+}
+
+function saveParty(editId) {
+  const name = document.getElementById('pt_name').value.trim();
+  if (!name) return showToast('Party name required', 'error');
+  const data = {
+    name,
+    phone: document.getElementById('pt_phone').value.trim(),
+    type: document.getElementById('pt_type').value,
+    address: document.getElementById('pt_address').value.trim(),
+  };
+  const parties = getData('parties');
+  if (editId) {
+    const idx = parties.findIndex(p=>p.id===editId);
+    parties[idx] = { ...parties[idx], ...data };
+  } else {
+    parties.push({ id: uid(), ...data });
+  }
+  setData('parties', parties);
+  closeModal();
+  showToast('Party saved!');
+  pages.parties();
+}
+
+function deleteParty(id) {
+  confirmAction('Delete this party?', () => {
+    setData('parties', getData('parties').filter(p=>p.id!==id));
+    showToast('Party deleted');
+    pages.parties();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: LEDGER
+// ═══════════════════════════════════════════════════════════
+pages.ledger = function() {
+  setMeta('ledger');
+  const parties = getData('parties');
+  const partyOpts = parties.map(p=>`<option value="${p.name}">${p.name} (${p.type})</option>`).join('');
+
+  const now = new Date();
+  const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="section-card">
+      <div class="form-row cols-4">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Party</label>
+          <select class="form-control" id="l_party"><option value="">-- Select Party --</option>${partyOpts}</select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">From Date</label>
+          <input class="form-control" type="date" id="l_from" value="${firstOfMonth}">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">To Date</label>
+          <input class="form-control" type="date" id="l_to" value="${today()}">
+        </div>
+        <div class="form-group" style="margin:0;display:flex;align-items:flex-end;gap:8px">
+          <button class="btn btn-primary" style="width:100%" onclick="generateLedger()">Generate</button>
+        </div>
+      </div>
+    </div>
+    <div id="ledgerResult"></div>
+  `;
+};
+
+function preSelectLedgerParty(name) {
+  const sel = document.getElementById('l_party');
+  if (sel) sel.value = name;
+}
+
+function generateLedger() {
+  const partyName = document.getElementById('l_party').value;
+  const fromDate = document.getElementById('l_from').value;
+  const toDate = document.getElementById('l_to').value;
+
+  if (!partyName) return showToast('Select a party', 'error');
+
+  const sales = getData('sales').filter(s=>s.customer===partyName&&s.date>=fromDate&&s.date<=toDate).map(s=>({...s,txnType:'sale',dr:s.total,cr:0}));
+  const purchases = getData('purchases').filter(p=>p.vendor===partyName&&p.date>=fromDate&&p.date<=toDate).map(p=>({...p,txnType:'purchase',dr:0,cr:p.total}));
+  const returns = getData('returns').filter(r=>r.partyName===partyName&&r.date>=fromDate&&r.date<=toDate).map(r=>({...r,txnType:r.type==='credit'?'credit-note':'debit-note', dr:r.type==='debit'?r.amount:0, cr:r.type==='credit'?r.amount:0, total:r.amount}));
+
+  const txns = [...sales, ...purchases, ...returns].sort((a,b)=>a.date.localeCompare(b.date));
+
+  let balance = 0;
+  let totalDr = 0, totalCr = 0;
+  const rows = txns.map(t => {
+    balance += (t.dr||0) - (t.cr||0);
+    totalDr += t.dr||0;
+    totalCr += t.cr||0;
+    const type = t.txnType;
+    const typeLabel = type==='sale'?'Sale':type==='purchase'?'Purchase':type==='credit-note'?'Credit Note':'Debit Note';
+    const billNo = t.billNo||t.noteNo||'—';
+    return `<tr>
+      <td>${fmtDate(t.date)}</td>
+      <td><span class="badge badge-${type==='sale'?'info':type==='purchase'?'warning':'muted'}">${typeLabel}</span></td>
+      <td class="mono">${billNo}</td>
+      <td class="mono ${t.dr>0?'dr':''}">${t.dr>0?fmt(t.dr):'—'}</td>
+      <td class="mono ${t.cr>0?'cr':''}">${t.cr>0?fmt(t.cr):'—'}</td>
+      <td class="mono" style="font-weight:600">${balance>=0?fmt(balance)+' Dr':fmt(Math.abs(balance))+' Cr'}</td>
+    </tr>`;
+  });
+
+  const closingLabel = balance >= 0 ? `${fmt(balance)} Dr` : `${fmt(Math.abs(balance))} Cr`;
+
+  document.getElementById('ledgerResult').innerHTML = `
+    <div class="balance-box">
+      <div class="bb-item"><div class="lbl">Party</div><div class="val" style="font-size:18px">${partyName}</div></div>
+      <div class="bb-item"><div class="lbl">Period</div><div class="val" style="font-size:15px">${fmtDate(fromDate)} – ${fmtDate(toDate)}</div></div>
+      <div class="bb-item"><div class="lbl">Closing Balance</div><div class="val">${closingLabel}</div></div>
+      <div style="margin-left:auto">
+        <button class="btn btn-outline" style="border-color:rgba(255,255,255,0.4);color:#fff" onclick="exportLedgerXLSX('${partyName}','${fromDate}','${toDate}')">⬇ Export Excel</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="ledger-table">
+        <thead><tr><th>Date</th><th>Type</th><th>Bill No</th><th>Debit (Dr)</th><th>Credit (Cr)</th><th>Balance</th></tr></thead>
+        <tbody>${rows.length ? rows.join('') : '<tr><td colspan="6"><div class="empty-state"><p>No transactions in this period.</p></div></td></tr>'}</tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="3" style="font-weight:700">Totals</td>
+            <td class="mono dr">${fmt(totalDr)}</td>
+            <td class="mono cr">${fmt(totalCr)}</td>
+            <td class="mono" style="font-weight:700">${closingLabel}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+}
+
+function exportLedgerXLSX(partyName, fromDate, toDate) {
+  const sales = getData('sales').filter(s=>s.customer===partyName&&s.date>=fromDate&&s.date<=toDate);
+  const purchases = getData('purchases').filter(p=>p.vendor===partyName&&p.date>=fromDate&&p.date<=toDate);
+  const returns = getData('returns').filter(r=>r.partyName===partyName&&r.date>=fromDate&&r.date<=toDate);
+  const txns = [
+    ...sales.map(s=>({date:s.date,type:'Sale',billNo:s.billNo,dr:s.total,cr:0})),
+    ...purchases.map(p=>({date:p.date,type:'Purchase',billNo:p.billNo,dr:0,cr:p.total})),
+    ...returns.map(r=>({date:r.date,type:r.type==='credit'?'Credit Note':'Debit Note',billNo:r.noteNo||'—',dr:r.type==='debit'?r.amount:0,cr:r.type==='credit'?r.amount:0}))
+  ].sort((a,b)=>a.date.localeCompare(b.date));
+
+  let bal = 0;
+  const wsData = [['Date','Type','Bill No','Debit (Dr)','Credit (Cr)','Balance']];
+  txns.forEach(t=>{
+    bal += (t.dr||0)-(t.cr||0);
+    wsData.push([t.date,t.type,t.billNo,t.dr||'',t.cr||',', bal>=0?bal+' Dr':Math.abs(bal)+' Cr']);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb, ws, partyName.slice(0,31));
+  XLSX.writeFile(wb, `Ledger_${partyName}_${fromDate}_${toDate}.xlsx`);
+  showToast('Ledger exported!');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: REPORTS
+// ═══════════════════════════════════════════════════════════
+pages.reports = function() {
+  setMeta('reports');
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="report-month-bar">
+      <label class="form-label" style="margin:0">Select Month:</label>
+      <input class="form-control" type="month" id="r_month" value="${currentMonth}" style="width:180px" onchange="generateReport()">
+      <button class="btn btn-primary btn-sm" onclick="generateReport()">Generate</button>
+    </div>
+    <div id="reportResult"></div>
+  `;
+
+  generateReport();
+};
+
+function generateReport() {
+  const month = document.getElementById('r_month')?.value;
+  if (!month) return;
+
+  const sales = getData('sales').filter(s=>s.date?.startsWith(month));
+  const purchases = getData('purchases').filter(p=>p.date?.startsWith(month));
+  const items = getData('items');
+
+  const totalSales = sales.reduce((a,s)=>a+Number(s.total||0),0);
+  const totalPurchases = purchases.reduce((a,p)=>a+Number(p.total||0),0);
+  const grossProfit = totalSales - totalPurchases;
+
+  const stockCost = items.reduce((a,i)=>a+Number(i.stock||0)*Number(i.purchaseRate||0),0);
+  const stockMRP = items.reduce((a,i)=>a+Number(i.stock||0)*Number(i.saleRate||0),0);
+
+  const salesRows = sales.length ? sales.sort((a,b)=>b.date.localeCompare(a.date)).map(s=>`
+    <tr>
+      <td class="mono">${s.billNo}</td>
+      <td>${fmtDate(s.date)}</td>
+      <td>${s.customer||'—'}</td>
+      <td>${s.items?.length||0}</td>
+      <td class="mono">${fmt(s.total)}</td>
+    </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state"><p>No sales this month.</p></div></td></tr>`;
+
+  document.getElementById('reportResult').innerHTML = `
+    <div class="cards-grid" style="margin-bottom:20px">
+      <div class="stat-card accent"><div class="label">Total Sales</div><div class="value">${fmt(totalSales)}</div><div class="sub">${sales.length} invoices</div></div>
+      <div class="stat-card"><div class="label">Total Purchases</div><div class="value">${fmt(totalPurchases)}</div><div class="sub">${purchases.length} bills</div></div>
+      <div class="stat-card ${grossProfit>=0?'success':'danger'}"><div class="label">Gross Profit</div><div class="value">${fmt(grossProfit)}</div></div>
+      <div class="stat-card"><div class="label">Stock Value (Cost)</div><div class="value">${fmt(stockCost)}</div><div class="sub">MRP: ${fmt(stockMRP)}</div></div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-header"><h3>Sales Transactions — ${month}</h3></div>
+      <table>
+        <thead><tr><th>Bill No</th><th>Date</th><th>Customer</th><th>Items</th><th>Amount</th></tr></thead>
+        <tbody>${salesRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: EXPORT
+// ═══════════════════════════════════════════════════════════
+pages.export = function() {
+  setMeta('export');
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="report-month-bar">
+      <label class="form-label" style="margin:0">Period:</label>
+      <input class="form-control" type="month" id="ex_month" value="${currentMonth}" style="width:180px">
+      <label class="form-label" style="margin:0;margin-left:12px">To:</label>
+      <input class="form-control" type="month" id="ex_toMonth" value="${currentMonth}" style="width:180px">
+    </div>
+    <div class="two-col">
+      <div>
+        <div class="section-card" style="margin-bottom:16px">
+          <h3>Transaction Exports</h3>
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Export filtered by selected period</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn btn-outline" onclick="exportSalesRegister()">📋 Sales Register</button>
+            <button class="btn btn-outline" onclick="exportPurchaseRegister()">📋 Purchase Register</button>
+            <button class="btn btn-outline" onclick="exportProfitSummary()">📊 Profit Summary (Month-wise)</button>
+            <button class="btn btn-outline" onclick="exportStockReport()">📦 Stock Report</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section-card">
+          <h3>Comprehensive Exports</h3>
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Multi-sheet workbooks with all data</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn btn-primary" onclick="exportAllPartyLedgers()">👥 All Party Ledgers</button>
+            <button class="btn btn-success" onclick="exportCompletePack()">🗂 Complete Pack (All in One)</button>
+          </div>
+          <div class="alert alert-info" style="margin-top:16px">
+            <strong>Complete Pack</strong> exports Sales, Purchases, Profit Summary, Stock Report, and all Party Ledgers into one .xlsx workbook.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+function getMonthRange() {
+  const from = document.getElementById('ex_month')?.value || '';
+  const to = document.getElementById('ex_toMonth')?.value || '';
+  return { from, to };
+}
+
+function inRange(date, from, to) {
+  if (!from && !to) return true;
+  const m = date?.slice(0,7)||'';
+  if (from && m < from) return false;
+  if (to && m > to) return false;
+  return true;
+}
+
+function exportSalesRegister() {
+  const { from, to } = getMonthRange();
+  const sales = getData('sales').filter(s=>inRange(s.date,from,to)).sort((a,b)=>a.date.localeCompare(b.date));
+  const rows = [['Bill No','Date','Customer','Items','Amount']];
+  sales.forEach(s=>rows.push([s.billNo,s.date,s.customer,s.items?.length||0,s.total]));
+  rows.push(['','','','TOTAL',sales.reduce((a,s)=>a+s.total,0)]);
+  downloadSheet(rows, 'Sales Register', `Sales_Register_${from||'all'}.xlsx`);
+}
+
+function exportPurchaseRegister() {
+  const { from, to } = getMonthRange();
+  const purch = getData('purchases').filter(p=>inRange(p.date,from,to)).sort((a,b)=>a.date.localeCompare(b.date));
+  const rows = [['Bill No','Date','Supplier','Items','Amount']];
+  purch.forEach(p=>rows.push([p.billNo,p.date,p.vendor,p.items?.length||0,p.total]));
+  rows.push(['','','','TOTAL',purch.reduce((a,p)=>a+p.total,0)]);
+  downloadSheet(rows, 'Purchase Register', `Purchase_Register_${from||'all'}.xlsx`);
+}
+
+function exportProfitSummary() {
+  const sales = getData('sales');
+  const purchases = getData('purchases');
+  const months = [...new Set([...sales.map(s=>s.date?.slice(0,7)), ...purchases.map(p=>p.date?.slice(0,7))].filter(Boolean))].sort();
+  const rows = [['Month','Total Sales','Total Purchases','Gross Profit']];
+  months.forEach(m=>{
+    const ms = sales.filter(s=>s.date?.startsWith(m)).reduce((a,s)=>a+s.total,0);
+    const mp = purchases.filter(p=>p.date?.startsWith(m)).reduce((a,p)=>a+p.total,0);
+    rows.push([m, ms, mp, ms-mp]);
+  });
+  downloadSheet(rows, 'Profit Summary', 'Profit_Summary.xlsx');
+}
+
+function exportStockReport() {
+  const items = getData('items');
+  const rows = [['Item Name','Unit','Purchase Rate','Sale Rate','Current Stock','Stock Value (Cost)','Stock Value (MRP)','Min Stock','Status']];
+  items.forEach(i=>{
+    const cost = Number(i.stock||0)*Number(i.purchaseRate||0);
+    const mrp = Number(i.stock||0)*Number(i.saleRate||0);
+    rows.push([i.name,i.unit,i.purchaseRate,i.saleRate,i.stock,cost,mrp,i.minStock,Number(i.stock||0)<=Number(i.minStock||0)?'LOW STOCK':'OK']);
+  });
+  downloadSheet(rows, 'Stock Report', 'Stock_Report.xlsx');
+}
+
+function exportAllPartyLedgers() {
+  const parties = getData('parties');
+  const sales = getData('sales');
+  const purchases = getData('purchases');
+  const returns = getData('returns');
+  const wb = XLSX.utils.book_new();
+
+  parties.forEach(party => {
+    const txns = [
+      ...sales.filter(s=>s.customer===party.name).map(s=>({date:s.date,type:'Sale',billNo:s.billNo,dr:s.total,cr:0})),
+      ...purchases.filter(p=>p.vendor===party.name).map(p=>({date:p.date,type:'Purchase',billNo:p.billNo,dr:0,cr:p.total})),
+      ...returns.filter(r=>r.partyName===party.name).map(r=>({date:r.date,type:r.type==='credit'?'Credit Note':'Debit Note',billNo:r.noteNo||'—',dr:r.type==='debit'?r.amount:0,cr:r.type==='credit'?r.amount:0}))
+    ].sort((a,b)=>a.date.localeCompare(b.date));
+
+    let bal = 0;
+    const wsData = [['Date','Type','Bill No','Debit','Credit','Balance']];
+    txns.forEach(t=>{
+      bal += (t.dr||0)-(t.cr||0);
+      wsData.push([t.date,t.type,t.billNo,t.dr||'',t.cr||'',bal>=0?bal+' Dr':Math.abs(bal)+' Cr']);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, party.name.slice(0,31));
+  });
+
+  XLSX.writeFile(wb, 'All_Party_Ledgers.xlsx');
+  showToast('All party ledgers exported!');
+}
+
+function exportCompletePack() {
+  const wb = XLSX.utils.book_new();
+  const sales = getData('sales');
+  const purchases = getData('purchases');
+  const items = getData('items');
+  const parties = getData('parties');
+  const returns = getData('returns');
+
+  // Sales
+  const sr = [['Bill No','Date','Customer','Items','Amount']];
+  sales.sort((a,b)=>a.date.localeCompare(b.date)).forEach(s=>sr.push([s.billNo,s.date,s.customer,s.items?.length||0,s.total]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sr), 'Sales');
+
+  // Purchases
+  const pr = [['Bill No','Date','Supplier','Items','Amount']];
+  purchases.sort((a,b)=>a.date.localeCompare(b.date)).forEach(p=>pr.push([p.billNo,p.date,p.vendor,p.items?.length||0,p.total]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pr), 'Purchases');
+
+  // Returns
+  const rr = [['Note No','Date','Type','Party','Against Bill','Amount','Reason']];
+  returns.forEach(r=>rr.push([r.noteNo,r.date,r.type,r.partyName,r.originalBillNo,r.amount,r.reason]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rr), 'Returns');
+
+  // Profit
+  const months = [...new Set([...sales.map(s=>s.date?.slice(0,7)), ...purchases.map(p=>p.date?.slice(0,7))].filter(Boolean))].sort();
+  const prow = [['Month','Sales','Purchases','Gross Profit']];
+  months.forEach(m=>{
+    const ms = sales.filter(s=>s.date?.startsWith(m)).reduce((a,s)=>a+s.total,0);
+    const mp = purchases.filter(p=>p.date?.startsWith(m)).reduce((a,p)=>a+p.total,0);
+    prow.push([m,ms,mp,ms-mp]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prow), 'Profit Summary');
+
+  // Stock
+  const stk = [['Item','Unit','Purchase Rate','Sale Rate','Stock','Value (Cost)','Value (MRP)']];
+  items.forEach(i=>stk.push([i.name,i.unit,i.purchaseRate,i.saleRate,i.stock,Number(i.stock||0)*Number(i.purchaseRate||0),Number(i.stock||0)*Number(i.saleRate||0)]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stk), 'Stock');
+
+  // Party Ledgers
+  parties.forEach(party => {
+    const txns = [
+      ...sales.filter(s=>s.customer===party.name).map(s=>({date:s.date,type:'Sale',billNo:s.billNo,dr:s.total,cr:0})),
+      ...purchases.filter(p=>p.vendor===party.name).map(p=>({date:p.date,type:'Purchase',billNo:p.billNo,dr:0,cr:p.total})),
+      ...returns.filter(r=>r.partyName===party.name).map(r=>({date:r.date,type:r.type==='credit'?'Credit Note':'Debit Note',billNo:r.noteNo||'—',dr:r.type==='debit'?r.amount:0,cr:r.type==='credit'?r.amount:0}))
+    ].sort((a,b)=>a.date.localeCompare(b.date));
+    let bal=0;
+    const ld=[['Date','Type','Bill No','Debit','Credit','Balance']];
+    txns.forEach(t=>{bal+=(t.dr||0)-(t.cr||0);ld.push([t.date,t.type,t.billNo,t.dr||'',t.cr||'',bal>=0?bal+' Dr':Math.abs(bal)+' Cr']);});
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ld), ('Ldgr-'+party.name).slice(0,31));
+  });
+
+  XLSX.writeFile(wb, 'TradeBook_Complete_Pack.xlsx');
+  showToast('Complete pack exported!');
+}
+
+function downloadSheet(data, sheetName, filename) {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, filename);
+  showToast('Exported: '+filename);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: SETTINGS
+// ═══════════════════════════════════════════════════════════
+pages.settings = function() {
+  setMeta('settings');
+  const s = getSettings();
+  document.getElementById('pageContent').innerHTML = `
+    <div class="two-col" style="max-width:900px">
+      <div>
+        <div class="section-card">
+          <h3>Shop Information</h3>
+          <div class="form-group">
+            <label class="form-label">Shop Name</label>
+            <input class="form-control" id="cfg_name" value="${s.shopName||''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <input class="form-control" id="cfg_address" value="${s.address||''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input class="form-control mono" id="cfg_phone" value="${s.phone||''}">
+          </div>
+          <button class="btn btn-primary" onclick="saveSettingsForm()">Save Settings</button>
+        </div>
+      </div>
+      <div>
+        <div class="section-card">
+          <h3>Data Management</h3>
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Backup your data or restore from a previous backup.</p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn btn-outline" onclick="exportBackup()">⬇ Export Backup (JSON)</button>
+            <label class="btn btn-ghost" style="cursor:pointer">
+              ⬆ Import Backup (JSON)
+              <input type="file" accept=".json" style="display:none" onchange="importBackup(this)">
+            </label>
+          </div>
+        </div>
+        <div class="section-card" style="border: 1.5px solid #EF9A9A">
+          <h3 style="color:var(--danger)">⚠ Danger Zone</h3>
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Permanently delete all data. This cannot be undone.</p>
+          <button class="btn btn-danger" onclick="clearAllData()">Clear All Data</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+function saveSettingsForm() {
+  const s = {
+    shopName: document.getElementById('cfg_name').value.trim(),
+    address: document.getElementById('cfg_address').value.trim(),
+    phone: document.getElementById('cfg_phone').value.trim(),
+  };
+  saveSettings(s);
+  document.getElementById('sidebarShopName').textContent = s.shopName||'TradeBook';
+  showToast('Settings saved!');
+}
+
+function exportBackup() {
+  const data = {
+    settings: getSettings(),
+    items: getData('items'),
+    parties: getData('parties'),
+    sales: getData('sales'),
+    purchases: getData('purchases'),
+    returns: getData('returns'),
+    exportedAt: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `TradeBook_Backup_${today()}.json`;
+  a.click();
+  showToast('Backup exported!');
+}
+
+function importBackup(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (confirm('This will replace ALL existing data. Are you sure?')) {
+        if (data.settings) saveSettings(data.settings);
+        if (data.items) setData('items', data.items);
+        if (data.parties) setData('parties', data.parties);
+        if (data.sales) setData('sales', data.sales);
+        if (data.purchases) setData('purchases', data.purchases);
+        if (data.returns) setData('returns', data.returns);
+        showToast('Backup restored!');
+        pages.settings();
+      }
+    } catch {
+      showToast('Invalid backup file', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function clearAllData() {
+  if (prompt('Type DELETE to confirm clearing all data:') === 'DELETE') {
+    ['items','parties','sales','purchases','returns'].forEach(k=>localStorage.removeItem(k));
+    showToast('All data cleared', 'error');
+    pages.dashboard();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SAMPLE DATA
+// ═══════════════════════════════════════════════════════════
+function loadSampleData() {
+  if (getData('items').length > 0) return; // already seeded
+
+  const items = [
+    { id: uid(), name: 'Two-Wheeler Chain', unit: 'Pcs', stock: 85, purchaseRate: 120, saleRate: 180, minStock: 10 },
+    { id: uid(), name: 'Brake Shoe Set', unit: 'Set', stock: 42, purchaseRate: 220, saleRate: 340, minStock: 8 },
+    { id: uid(), name: 'Engine Oil 1L', unit: 'Ltr', stock: 4, purchaseRate: 350, saleRate: 490, minStock: 10 }
+  ];
+
+  const parties = [
+    { id: uid(), name: 'Mehta Auto Works', phone: '9876500001', address: 'Shop 12, Sitapur Road, Vadodara', type: 'customer' },
+    { id: uid(), name: 'Rajkot Auto Parts Co.', phone: '9876500002', address: 'GIDC Phase 2, Rajkot', type: 'vendor' },
+    { id: uid(), name: 'Kumar Garage', phone: '9876500003', address: 'MG Road, Anand', type: 'both' }
+  ];
+
+  const sales = [
+    { id: uid(), billNo: 'INV-001', date: today(), customer: 'Mehta Auto Works', items: [{ name:'Two-Wheeler Chain', qty:5, unit:'Pcs', rate:180, amount:900 },{ name:'Brake Shoe Set', qty:2, unit:'Set', rate:340, amount:680 }], total:1580 },
+    { id: uid(), billNo: 'INV-002', date: today(), customer: 'Kumar Garage', items: [{ name:'Engine Oil 1L', qty:3, unit:'Ltr', rate:490, amount:1470 }], total:1470 }
+  ];
+
+  const purchases = [
+    { id: uid(), billNo: 'PUR-001', date: today(), vendor: 'Rajkot Auto Parts Co.', items: [{ name:'Two-Wheeler Chain', qty:50, unit:'Pcs', rate:120, amount:6000 },{ name:'Engine Oil 1L', qty:20, unit:'Ltr', rate:350, amount:7000 }], total:13000 }
+  ];
+
+  // Adjust stock from sample txns
+  items[0].stock = 85 + 50 - 5; // chain
+  items[1].stock = 42 - 2;      // brake shoe
+  items[2].stock = 4 + 20 - 3;  // engine oil
+
+  setData('items', items);
+  setData('parties', parties);
+  setData('sales', sales);
+  setData('purchases', purchases);
+  setData('returns', []);
+  setData('cashbook', []);
+  if (!localStorage.getItem('settings')) saveSettings({ shopName: 'Sharma Auto Parts', address: '45 Station Road, Vadodara, Gujarat', phone: '9876543210' });
+}
+
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: OUTSTANDING DUES
+// ═══════════════════════════════════════════════════════════
+pages.outstanding = function(tab) {
+  setMeta('outstanding');
+  tab = tab || 'receivable';
+
+  const sales = getData('sales');
+  const purchases = getData('purchases');
+
+  // Receivable = customers who owe us (unpaid/partial sales)
+  const receivable = sales.filter(s => (s.status||'unpaid') !== 'paid')
+    .map(s => ({
+      ...s,
+      party: s.customer,
+      type: 'sale',
+      due: Number(s.total||0) - Number(s.paidAmount||0)
+    })).filter(x => x.due > 0)
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  // Payable = vendors we owe (unpaid/partial purchases)
+  const payable = purchases.filter(p => (p.status||'unpaid') !== 'paid')
+    .map(p => ({
+      ...p,
+      party: p.vendor,
+      type: 'purchase',
+      due: Number(p.total||0) - Number(p.paidAmount||0)
+    })).filter(x => x.due > 0)
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  const totalRec = receivable.reduce((a,x)=>a+x.due,0);
+  const totalPay = payable.reduce((a,x)=>a+x.due,0);
+
+  function buildRows(list, type) {
+    if (!list.length) return `<tr><td colspan="7"><div class="empty-state"><p>No outstanding ${type === 'sale' ? 'receivables' : 'payables'}. All clear! ✓</p></div></td></tr>`;
+    return list.map(r => {
+      const paid = Number(r.paidAmount||0);
+      const pct = r.total > 0 ? Math.round(paid/r.total*100) : 0;
+      const statusBadge = paid === 0
+        ? `<span class="badge badge-danger">Unpaid</span>`
+        : `<span class="badge badge-warning">Partial (${pct}%)</span>`;
+      return `<tr>
+        <td>${fmtDate(r.date)}</td>
+        <td class="mono">${r.billNo}</td>
+        <td><strong>${r.party}</strong></td>
+        <td class="mono">${fmt(r.total)}</td>
+        <td class="mono" style="color:var(--success)">${fmt(paid)}</td>
+        <td class="mono" style="color:var(--danger);font-weight:700">${fmt(r.due)}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <button class="btn btn-success btn-xs" onclick="recordPayment('${r.id}','${type}')">Receive</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('topbarActions').innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="exportOutstanding()">⬇ Export</button>
+  `;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="cards-grid" style="grid-template-columns:1fr 1fr;margin-bottom:20px">
+      <div class="stat-card success">
+        <div class="label">Total Receivable</div>
+        <div class="value">${fmt(totalRec)}</div>
+        <div class="sub">${receivable.length} invoices pending</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="label">Total Payable</div>
+        <div class="value">${fmt(totalPay)}</div>
+        <div class="sub">${payable.length} bills pending</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0;margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content">
+      <button class="btn ${tab==='receivable'?'btn-primary':'btn-ghost'}" style="border-radius:0;border:none" onclick="pages.outstanding('receivable')">
+        💰 Receivable (${receivable.length})
+      </button>
+      <button class="btn ${tab==='payable'?'btn-primary':'btn-ghost'}" style="border-radius:0;border:none;border-left:1px solid var(--border)" onclick="pages.outstanding('payable')">
+        📤 Payable (${payable.length})
+      </button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <h3>${tab==='receivable' ? '🟢 Sales Receivable — Customers who owe you' : '🔴 Purchase Payable — You owe suppliers'}</h3>
+      </div>
+      <table>
+        <thead><tr><th>Date</th><th>Bill No</th><th>Party</th><th>Bill Amt</th><th>Paid</th><th>Due</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>${buildRows(tab==='receivable'?receivable:payable, tab==='receivable'?'sale':'purchase')}</tbody>
+        ${(tab==='receivable'?receivable:payable).length > 0 ? `
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="3">Total</td>
+            <td class="mono">${fmt((tab==='receivable'?receivable:payable).reduce((a,x)=>a+x.total,0))}</td>
+            <td class="mono" style="color:var(--success)">${fmt((tab==='receivable'?receivable:payable).reduce((a,x)=>a+Number(x.paidAmount||0),0))}</td>
+            <td class="mono" style="color:var(--danger);font-weight:700">${fmt(tab==='receivable'?totalRec:totalPay)}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>` : ''}
+      </table>
+    </div>
+  `;
+};
+
+function recordPayment(id, type) {
+  const list = getData(type === 'sale' ? 'sales' : 'purchases');
+  const rec = list.find(x => x.id === id);
+  if (!rec) return;
+  const due = Number(rec.total||0) - Number(rec.paidAmount||0);
+  const partyLabel = type === 'sale' ? rec.customer : rec.vendor;
+
+  openModal('Record Payment — ' + rec.billNo, `
+    <div style="background:var(--bg);border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="color:var(--text-muted)">Party</span><strong>${partyLabel}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="color:var(--text-muted)">Bill Amount</span><span class="mono">${fmt(rec.total)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="color:var(--text-muted)">Already Paid</span><span class="mono" style="color:var(--success)">${fmt(rec.paidAmount||0)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--text-muted)">Balance Due</span><span class="mono" style="color:var(--danger);font-weight:700">${fmt(due)}</span>
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Payment Date</label>
+        <input class="form-control" type="date" id="pay_date" value="${today()}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount Received (₹)</label>
+        <input class="form-control mono" id="pay_amount" type="number" min="0" step="any" value="${due}" placeholder="${fmtN(due)}">
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Mode</label>
+        <select class="form-control" id="pay_mode">
+          <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reference / Note</label>
+        <input class="form-control" id="pay_note" placeholder="UTR, cheque no., etc.">
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-success" onclick="savePayment('${id}','${type}',${due})">Save Payment</button>
+  `);
+}
+
+function savePayment(id, type, maxDue) {
+  const amount = parseFloat(document.getElementById('pay_amount').value||0);
+  if (!amount || amount <= 0) return showToast('Enter a valid amount', 'error');
+  if (amount > maxDue + 0.01) return showToast('Amount exceeds balance due', 'error');
+
+  const date = document.getElementById('pay_date').value;
+  const mode = document.getElementById('pay_mode').value;
+  const note = document.getElementById('pay_note').value.trim();
+
+  const key = type === 'sale' ? 'sales' : 'purchases';
+  const list = getData(key);
+  const idx = list.findIndex(x => x.id === id);
+  if (idx < 0) return;
+
+  list[idx].paidAmount = Number(list[idx].paidAmount||0) + amount;
+  list[idx].status = list[idx].paidAmount >= list[idx].total - 0.01 ? 'paid' : 'partial';
+
+  // Record in cashbook
+  const cashEntries = getData('cashbook');
+  cashEntries.push({
+    id: uid(), date, type: type==='sale' ? 'receipt' : 'payment',
+    party: type==='sale' ? list[idx].customer : list[idx].vendor,
+    amount, mode, note,
+    refBillNo: list[idx].billNo,
+    account: mode === 'Cash' ? 'Cash' : 'Bank'
+  });
+
+  setData(key, list);
+  setData('cashbook', cashEntries);
+  closeModal();
+  showToast(`Payment of ${fmt(amount)} recorded!`);
+  pages.outstanding();
+}
+
+function exportOutstanding() {
+  const sales = getData('sales').filter(s=>(s.status||'unpaid')!=='paid')
+    .map(s=>['Sale', s.billNo, s.date, s.customer, s.total, s.paidAmount||0, s.total-(s.paidAmount||0), s.status||'unpaid']);
+  const purchases = getData('purchases').filter(p=>(p.status||'unpaid')!=='paid')
+    .map(p=>['Purchase', p.billNo, p.date, p.vendor, p.total, p.paidAmount||0, p.total-(p.paidAmount||0), p.status||'unpaid']);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([['Type','Bill No','Date','Party','Bill Amt','Paid','Due','Status'],...sales,...purchases]);
+  XLSX.utils.book_append_sheet(wb, ws, 'Outstanding');
+  XLSX.writeFile(wb, 'Outstanding_Dues.xlsx');
+  showToast('Exported!');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: CASH / BANK REGISTER
+// ═══════════════════════════════════════════════════════════
+pages.cashbook = function(acct) {
+  setMeta('cashbook');
+  acct = acct || 'Cash';
+
+  const entries = getData('cashbook').filter(e => (e.account||'Cash') === acct)
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  const totalIn  = entries.filter(e=>e.type==='receipt'||e.type==='in').reduce((a,e)=>a+Number(e.amount||0),0);
+  const totalOut = entries.filter(e=>e.type==='payment'||e.type==='out').reduce((a,e)=>a+Number(e.amount||0),0);
+  const balance  = totalIn - totalOut;
+
+  let running = 0;
+  const rows = entries.length ? entries.map(e => {
+    const isIn = e.type==='receipt'||e.type==='in';
+    running += isIn ? Number(e.amount||0) : -Number(e.amount||0);
+    return `<tr>
+      <td>${fmtDate(e.date)}</td>
+      <td><span class="badge ${isIn?'badge-success':'badge-danger'}">${isIn?'IN':'OUT'}</span></td>
+      <td>${e.party||'—'}</td>
+      <td>${e.mode||'Cash'}</td>
+      <td>${e.note||e.refBillNo||'—'}</td>
+      <td class="mono" style="color:var(--success)">${isIn?fmt(e.amount):'—'}</td>
+      <td class="mono" style="color:var(--danger)">${!isIn?fmt(e.amount):'—'}</td>
+      <td class="mono" style="font-weight:600;color:${running>=0?'var(--success)':'var(--danger)'}">${fmt(Math.abs(running))} ${running>=0?'Cr':'Dr'}</td>
+      <td><button class="btn btn-danger btn-xs" onclick="deleteCashEntry('${e.id}')">Del</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="9"><div class="empty-state"><p>No entries yet. Record cash or bank transactions.</p></div></td></tr>`;
+
+  document.getElementById('topbarActions').innerHTML = `<button class="btn btn-primary" onclick="openCashEntryForm('${acct}')">+ New Entry</button>`;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div style="display:flex;gap:0;margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content">
+      <button class="btn ${acct==='Cash'?'btn-primary':'btn-ghost'}" style="border-radius:0;border:none" onclick="pages.cashbook('Cash')">💵 Cash</button>
+      <button class="btn ${acct==='Bank'?'btn-primary':'btn-ghost'}" style="border-radius:0;border:none;border-left:1px solid var(--border)" onclick="pages.cashbook('Bank')">🏦 Bank</button>
+    </div>
+
+    <div class="cards-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+      <div class="stat-card success"><div class="label">Total In</div><div class="value">${fmt(totalIn)}</div></div>
+      <div class="stat-card danger"><div class="label">Total Out</div><div class="value">${fmt(totalOut)}</div></div>
+      <div class="stat-card ${balance>=0?'accent':'danger'}"><div class="label">${acct} Balance</div><div class="value">${fmt(Math.abs(balance))}</div><div class="sub">${balance>=0?'Credit':'Deficit'}</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header"><h3>${acct} Register</h3></div>
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th>Party</th><th>Mode</th><th>Ref / Note</th><th>In (₹)</th><th>Out (₹)</th><th>Balance</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+};
+
+function openCashEntryForm(acct) {
+  const parties = getData('parties');
+  const partyOpts = parties.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+  openModal('New ' + acct + ' Entry', `
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-control" type="date" id="ce_date" value="${today()}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-control" id="ce_type">
+          <option value="in">Money In (Receipt)</option>
+          <option value="out">Money Out (Payment)</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Party / Description</label>
+        <input class="form-control" id="ce_party" list="cePartyList" placeholder="Name or description">
+        <datalist id="cePartyList">${partyOpts}</datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount (₹)</label>
+        <input class="form-control mono" id="ce_amount" type="number" min="0" step="any" placeholder="0.00">
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label">Mode</label>
+        <select class="form-control" id="ce_mode">
+          <option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reference / Note</label>
+        <input class="form-control" id="ce_note" placeholder="Bill no., UTR, note...">
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveCashEntry('${acct}')">Save Entry</button>
+  `);
+}
+
+function saveCashEntry(acct) {
+  const date   = document.getElementById('ce_date').value;
+  const type   = document.getElementById('ce_type').value;
+  const party  = document.getElementById('ce_party').value.trim();
+  const amount = parseFloat(document.getElementById('ce_amount').value||0);
+  const mode   = document.getElementById('ce_mode').value;
+  const note   = document.getElementById('ce_note').value.trim();
+
+  if (!amount || amount <= 0) return showToast('Enter a valid amount', 'error');
+
+  const entries = getData('cashbook');
+  entries.push({ id: uid(), date, type, party, amount, mode, note, account: acct });
+  setData('cashbook', entries);
+  closeModal();
+  showToast('Entry saved!');
+  pages.cashbook(acct);
+}
+
+function deleteCashEntry(id) {
+  confirmAction('Delete this cash/bank entry?', () => {
+    setData('cashbook', getData('cashbook').filter(e=>e.id!==id));
+    showToast('Entry deleted');
+    pages.cashbook();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: DAY BOOK
+// ═══════════════════════════════════════════════════════════
+pages.daybook = function(dateVal) {
+  setMeta('daybook');
+  dateVal = dateVal || today();
+
+  const sales     = getData('sales').filter(s=>s.date===dateVal);
+  const purchases = getData('purchases').filter(p=>p.date===dateVal);
+  const returns   = getData('returns').filter(r=>r.date===dateVal);
+  const cashbook  = getData('cashbook').filter(e=>e.date===dateVal);
+
+  const totalSales = sales.reduce((a,s)=>a+Number(s.total||0),0);
+  const totalPurch = purchases.reduce((a,p)=>a+Number(p.total||0),0);
+  const totalRet   = returns.reduce((a,r)=>a+Number(r.amount||0),0);
+  const cashIn     = cashbook.filter(e=>e.type==='receipt'||e.type==='in').reduce((a,e)=>a+Number(e.amount||0),0);
+  const cashOut    = cashbook.filter(e=>e.type==='payment'||e.type==='out').reduce((a,e)=>a+Number(e.amount||0),0);
+
+  // Build unified ledger for the day
+  let allTxns = [
+    ...sales.map(s=>({ time:'', icon:'🧾', type:'Sale Invoice', ref:s.billNo, party:s.customer, in:s.total, out:0, note:s.items?.length+' items' })),
+    ...purchases.map(p=>({ time:'', icon:'📦', type:'Purchase Bill', ref:p.billNo, party:p.vendor, in:0, out:p.total, note:p.items?.length+' items' })),
+    ...returns.map(r=>({ time:'', icon:'↩', type:r.type==='credit'?'Credit Note':'Debit Note', ref:r.noteNo||'—', party:r.partyName, in:r.type==='debit'?r.amount:0, out:r.type==='credit'?r.amount:0, note:r.reason||'' })),
+    ...cashbook.map(e=>({ time:'', icon:e.type==='receipt'||e.type==='in'?'💵':'💸', type:e.type==='receipt'||e.type==='in'?'Cash In':'Cash Out', ref:e.note||e.refBillNo||'—', party:e.party||'—', in:e.type==='receipt'||e.type==='in'?e.amount:0, out:e.type==='payment'||e.type==='out'?e.amount:0, note:e.mode||'' }))
+  ];
+
+  const dayRows = allTxns.length ? allTxns.map(t=>`
+    <tr>
+      <td style="font-size:16px;text-align:center">${t.icon}</td>
+      <td><span class="badge badge-muted">${t.type}</span></td>
+      <td class="mono">${t.ref}</td>
+      <td><strong>${t.party}</strong></td>
+      <td class="mono" style="color:var(--success)">${t.in>0?fmt(t.in):'—'}</td>
+      <td class="mono" style="color:var(--danger)">${t.out>0?fmt(t.out):'—'}</td>
+      <td style="color:var(--text-muted);font-size:12px">${t.note}</td>
+    </tr>`).join('') : `<tr><td colspan="7"><div class="empty-state"><p>No transactions on this date.</p></div></td></tr>`;
+
+  document.getElementById('topbarActions').innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="exportDayBook('${dateVal}')">⬇ Export</button>
+  `;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;background:var(--surface);padding:14px 20px;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);flex-wrap:wrap">
+      <label class="form-label" style="margin:0">Date:</label>
+      <input class="form-control" type="date" id="db_date" value="${dateVal}" style="width:180px" onchange="pages.daybook(this.value)">
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn btn-ghost btn-sm" onclick="pages.daybook(offsetDate('${dateVal}',-1))">◀ Prev</button>
+        <button class="btn btn-ghost btn-sm" onclick="pages.daybook('${today()}')">Today</button>
+        <button class="btn btn-ghost btn-sm" onclick="pages.daybook(offsetDate('${dateVal}',1))">Next ▶</button>
+      </div>
+    </div>
+
+    <div class="cards-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px">
+      <div class="stat-card accent"><div class="label">Sales</div><div class="value" style="font-size:18px">${fmt(totalSales)}</div><div class="sub">${sales.length} bills</div></div>
+      <div class="stat-card"><div class="label">Purchases</div><div class="value" style="font-size:18px">${fmt(totalPurch)}</div><div class="sub">${purchases.length} bills</div></div>
+      <div class="stat-card"><div class="label">Returns</div><div class="value" style="font-size:18px">${fmt(totalRet)}</div><div class="sub">${returns.length} notes</div></div>
+      <div class="stat-card success"><div class="label">Cash In</div><div class="value" style="font-size:18px">${fmt(cashIn)}</div></div>
+      <div class="stat-card danger"><div class="label">Cash Out</div><div class="value" style="font-size:18px">${fmt(cashOut)}</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header"><h3>All Transactions — ${fmtDate(dateVal)}</h3><span style="font-size:12px;color:var(--text-muted)">${allTxns.length} entries</span></div>
+      <table>
+        <thead><tr><th></th><th>Type</th><th>Ref</th><th>Party</th><th>In (₹)</th><th>Out (₹)</th><th>Note</th></tr></thead>
+        <tbody>${dayRows}</tbody>
+        ${allTxns.length ? `<tfoot><tr class="total-row">
+          <td colspan="4">Day Total</td>
+          <td class="mono" style="color:var(--success)">${fmt(allTxns.reduce((a,t)=>a+t.in,0))}</td>
+          <td class="mono" style="color:var(--danger)">${fmt(allTxns.reduce((a,t)=>a+t.out,0))}</td>
+          <td></td>
+        </tr></tfoot>` : ''}
+      </table>
+    </div>
+  `;
+};
+
+function offsetDate(dateStr, days) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+function exportDayBook(dateVal) {
+  const sales     = getData('sales').filter(s=>s.date===dateVal);
+  const purchases = getData('purchases').filter(p=>p.date===dateVal);
+  const returns   = getData('returns').filter(r=>r.date===dateVal);
+  const cashbook  = getData('cashbook').filter(e=>e.date===dateVal);
+  const rows = [['Type','Ref','Party','In','Out','Note']];
+  sales.forEach(s=>rows.push(['Sale Invoice',s.billNo,s.customer,s.total,'',s.items?.length+' items']));
+  purchases.forEach(p=>rows.push(['Purchase Bill',p.billNo,p.vendor,'',p.total,p.items?.length+' items']));
+  returns.forEach(r=>rows.push([r.type==='credit'?'Credit Note':'Debit Note',r.noteNo||'',r.partyName,r.type==='debit'?r.amount:'',r.type==='credit'?r.amount:'',r.reason||'']));
+  cashbook.forEach(e=>rows.push([e.type==='receipt'||e.type==='in'?'Cash In':'Cash Out',e.note||'',e.party||'',e.type==='receipt'||e.type==='in'?e.amount:'',e.type==='payment'||e.type==='out'?e.amount:'',e.mode||'']));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Day Book');
+  XLSX.writeFile(wb, 'DayBook_'+dateVal+'.xlsx');
+  showToast('Day Book exported!');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PAGE: PROFIT & LOSS
+// ═══════════════════════════════════════════════════════════
+pages.pnl = function() {
+  setMeta('pnl');
+  const now = new Date();
+  const fyStart = now.getMonth() >= 3
+    ? `${now.getFullYear()}-04-01`
+    : `${now.getFullYear()-1}-04-01`;
+  const fyEnd = today();
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="report-month-bar" style="flex-wrap:wrap;gap:10px">
+      <label class="form-label" style="margin:0">From:</label>
+      <input class="form-control" type="date" id="pl_from" value="${fyStart}" style="width:160px">
+      <label class="form-label" style="margin:0">To:</label>
+      <input class="form-control" type="date" id="pl_to" value="${fyEnd}" style="width:160px">
+      <button class="btn btn-primary" onclick="generatePnL()">Generate P&L</button>
+      <button class="btn btn-outline" onclick="exportPnL()">⬇ Export</button>
+    </div>
+    <div id="plResult"></div>
+  `;
+  generatePnL();
+};
+
+function generatePnL() {
+  const from = document.getElementById('pl_from')?.value;
+  const to   = document.getElementById('pl_to')?.value;
+  if (!from || !to) return;
+
+  const sales     = getData('sales').filter(s=>s.date>=from&&s.date<=to);
+  const purchases = getData('purchases').filter(p=>p.date>=from&&p.date<=to);
+  const returns   = getData('returns').filter(r=>r.date>=from&&r.date<=to);
+  const cashbook  = getData('cashbook').filter(e=>e.date>=from&&e.date<=to);
+
+  const totalSales    = sales.reduce((a,s)=>a+Number(s.total||0),0);
+  const salesReturns  = returns.filter(r=>r.type==='credit').reduce((a,r)=>a+Number(r.amount||0),0);
+  const netSales      = totalSales - salesReturns;
+
+  const totalPurch    = purchases.reduce((a,p)=>a+Number(p.total||0),0);
+  const purchReturns  = returns.filter(r=>r.type==='debit').reduce((a,r)=>a+Number(r.amount||0),0);
+  const netPurch      = totalPurch - purchReturns;
+
+  const grossProfit   = netSales - netPurch;
+  const grossPct      = netSales > 0 ? (grossProfit/netSales*100).toFixed(1) : '0.0';
+
+  // Other expenses/income from cashbook manual entries (not linked to bills)
+  const otherIncome   = cashbook.filter(e=>(e.type==='in')&&!e.refBillNo).reduce((a,e)=>a+Number(e.amount||0),0);
+  const otherExpenses = cashbook.filter(e=>(e.type==='out')&&!e.refBillNo).reduce((a,e)=>a+Number(e.amount||0),0);
+
+  const netProfit = grossProfit + otherIncome - otherExpenses;
+  const netPct    = netSales > 0 ? (netProfit/netSales*100).toFixed(1) : '0.0';
+
+  // Month-wise breakdown
+  const months = {};
+  sales.forEach(s => {
+    const m = s.date.slice(0,7);
+    if (!months[m]) months[m] = { sales:0, purch:0 };
+    months[m].sales += Number(s.total||0);
+  });
+  purchases.forEach(p => {
+    const m = p.date.slice(0,7);
+    if (!months[m]) months[m] = { sales:0, purch:0 };
+    months[m].purch += Number(p.total||0);
+  });
+  const monthRows = Object.entries(months).sort((a,b)=>a[0].localeCompare(b[0])).map(([m,v])=>{
+    const gp = v.sales - v.purch;
+    return `<tr>
+      <td>${m}</td>
+      <td class="mono">${fmt(v.sales)}</td>
+      <td class="mono">${fmt(v.purch)}</td>
+      <td class="mono" style="font-weight:700;color:${gp>=0?'var(--success)':'var(--danger)'}">${fmt(gp)}</td>
+      <td class="mono" style="color:var(--text-muted)">${v.sales>0?(gp/v.sales*100).toFixed(1)+'%':'—'}</td>
+    </tr>`;
+  }).join('');
+
+  function plRow(label, value, indent=false, bold=false, color='') {
+    return `<tr>
+      <td style="${indent?'padding-left:28px':''};${bold?'font-weight:700':''}">${label}</td>
+      <td></td>
+      <td class="mono" style="font-weight:${bold?700:400};color:${color||'inherit'}">${fmt(value)}</td>
+    </tr>`;
+  }
+  function plDivider(label) {
+    return `<tr style="background:#f8fafc"><td colspan="3" style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);padding:10px 16px">${label}</td></tr>`;
+  }
+
+  document.getElementById('plResult').innerHTML = `
+    <div class="cards-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="stat-card accent"><div class="label">Net Sales</div><div class="value">${fmt(netSales)}</div></div>
+      <div class="stat-card"><div class="label">Cost of Purchase</div><div class="value">${fmt(netPurch)}</div></div>
+      <div class="stat-card ${grossProfit>=0?'success':'danger'}">
+        <div class="label">Gross Profit</div><div class="value">${fmt(grossProfit)}</div>
+        <div class="sub">Margin: ${grossPct}%</div>
+      </div>
+      <div class="stat-card ${netProfit>=0?'success':'danger'}">
+        <div class="label">Net Profit</div><div class="value">${fmt(netProfit)}</div>
+        <div class="sub">Margin: ${netPct}%</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="table-wrap">
+        <div class="table-header"><h3>Profit & Loss Statement</h3><span style="font-size:12px;color:var(--text-muted)">${fmtDate(from)} – ${fmtDate(to)}</span></div>
+        <table>
+          <thead><tr><th>Particulars</th><th></th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            ${plDivider('Income')}
+            ${plRow('Gross Sales', totalSales, true)}
+            ${plRow('Less: Sales Returns', salesReturns, true)}
+            ${plRow('Net Sales', netSales, false, true, 'var(--accent)')}
+            ${otherIncome > 0 ? plRow('Other Income', otherIncome, true) : ''}
+            ${plDivider('Cost of Goods')}
+            ${plRow('Total Purchases', totalPurch, true)}
+            ${plRow('Less: Purchase Returns', purchReturns, true)}
+            ${plRow('Net Purchases (COGS)', netPurch, false, true)}
+            ${plDivider('Profit')}
+            ${plRow('Gross Profit', grossProfit, false, true, grossProfit>=0?'var(--success)':'var(--danger)')}
+            ${otherExpenses > 0 ? plRow('Less: Other Expenses', otherExpenses, true, false, 'var(--danger)') : ''}
+            ${plRow('NET PROFIT / LOSS', netProfit, false, true, netProfit>=0?'var(--success)':'var(--danger)')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-header"><h3>Month-wise Breakdown</h3></div>
+        <table>
+          <thead><tr><th>Month</th><th>Sales</th><th>Purchase</th><th>Gross Profit</th><th>Margin</th></tr></thead>
+          <tbody>${monthRows||`<tr><td colspan="5"><div class="empty-state"><p>No data</p></div></td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function exportPnL() {
+  const from = document.getElementById('pl_from')?.value;
+  const to   = document.getElementById('pl_to')?.value;
+  if (!from||!to) return;
+
+  const sales     = getData('sales').filter(s=>s.date>=from&&s.date<=to);
+  const purchases = getData('purchases').filter(p=>p.date>=from&&p.date<=to);
+  const returns   = getData('returns').filter(r=>r.date>=from&&r.date<=to);
+
+  const totalSales   = sales.reduce((a,s)=>a+Number(s.total||0),0);
+  const salesRet     = returns.filter(r=>r.type==='credit').reduce((a,r)=>a+Number(r.amount||0),0);
+  const totalPurch   = purchases.reduce((a,p)=>a+Number(p.total||0),0);
+  const purchRet     = returns.filter(r=>r.type==='debit').reduce((a,r)=>a+Number(r.amount||0),0);
+  const grossProfit  = (totalSales-salesRet) - (totalPurch-purchRet);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Profit & Loss Statement', '', from + ' to ' + to],
+    [''],
+    ['Particulars','','Amount'],
+    ['Gross Sales','',totalSales],
+    ['Less: Sales Returns','',salesRet],
+    ['Net Sales','',totalSales-salesRet],
+    [''],
+    ['Total Purchases','',totalPurch],
+    ['Less: Purchase Returns','',purchRet],
+    ['Net Purchases (COGS)','',totalPurch-purchRet],
+    [''],
+    ['GROSS PROFIT','',grossProfit],
+  ]);
+  XLSX.utils.book_append_sheet(wb, ws, 'P&L');
+  XLSX.writeFile(wb, 'PnL_'+from+'_to_'+to+'.xlsx');
+  showToast('P&L exported!');
+}
+
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+loadSampleData();
+const s = getSettings();
+document.getElementById('sidebarShopName').textContent = s.shopName||'TradeBook';
+showPage('dashboard');
+</script>
+<!-- BOTTOM NAV (mobile) -->
+<nav id="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bn-item active" id="bn-dashboard" onclick="showPage('dashboard')" title="Dashboard">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Home
+    </button>
+    <button class="bn-item" id="bn-sales" onclick="showPage('sales')" title="Sales">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 0 2 2"/></svg>
+      Sales
+    </button>
+    <button class="bn-item" id="bn-purchases" onclick="showPage('purchases')" title="Purchases">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Purchase
+    </button>
+    <button class="bn-item" id="bn-inventory" onclick="showPage('inventory')" title="Inventory">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Stock
+    </button>
+    <button class="bn-item" id="bn-more" onclick="openSidebar()" title="More">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      More
+    </button>
+  </div>
+</nav>
+
+<!-- FAB (mobile new entry shortcut) -->
+<button id="fab" onclick="handleFab()" title="New Entry">+</button>
+
+
+</body>
+</html>
